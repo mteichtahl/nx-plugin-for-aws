@@ -99,5 +99,20 @@
         "targetName": "e2e"
       }
     }
-  ]
+  ],
+  "release": {
+    "projects": ["@aws/nx-plugin"],
+    "changelog": {
+      "workspaceChangelog": {
+        "file": false,
+        "createRelease": "github"
+      }
+    },
+    "version": {
+      "conventionalCommits": true,
+      "generatorOptions": {
+        "packageRoot": "dist/packages/nx-plugin"
+      }
+    }
+  }
 }

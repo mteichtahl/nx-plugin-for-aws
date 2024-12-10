@@ -25,6 +25,8 @@ export default defineConfig({
     coverage: {
       reportsDirectory: '../../coverage/packages/nx-plugin',
       provider: 'v8',
+      enabled: true,
+      reporter: ['lcov']
     },
     pool: 'threads',
     poolOptions: {
