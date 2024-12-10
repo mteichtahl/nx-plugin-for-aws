@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "TrpcBackend",
+  "title": "",
+  "type": "object",
+  "properties": {
+    "apiName": {
+      "type": "string",
+      "description": "",
+      "$default": {
+        "$source": "argv",
+        "index": 0
+      },
+      "x-prompt": "What name would your API to be? i.e: MyApi"
+    },
+    "apiNamespace": {
+      "type": "string",
+      "description": "",
+      "$default": {
+        "$source": "argv",
+        "index": 0
+      },
+      "pattern": "^@[a-z0-9-]+(?:/[a-z0-9-]+)?$",
+      "x-prompt": "What namespace would you like your API to have? i.e: @myapi"
+    },
+    "directory": {
+      "description": "The directory of the new application.",
+      "type": "string",
+      "alias": "dir",
+      "x-priority": "important",
+      "default": "packages",
+      "x-prompt": "What directory would you like to store your application in?"
+    },
+    "unitTestRunner": {
+      "type": "string",
+      "enum": ["jest", "vitest", "none"],
+      "description": "Test runner to use for unit tests.",
+      "x-prompt": "Which unit test runner would you like to use?",
+      "default": "vitest",
+      "x-priority": "important"
+    }
+  },
+  "required": ["apiName", "apiNamespace"]
+}

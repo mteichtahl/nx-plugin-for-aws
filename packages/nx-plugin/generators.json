@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "name": "pace",
+  "version": "0.0.1",
+  "generators": {
+    "ts#lib": {
+      "factory": "./src/ts/lib/generator",
+      "schema": "./src/ts/lib/schema.json",
+      "description": "Generates a TypeScript library"
+    },
+    "ts#cjs-to-esm": {
+      "factory": "./src/ts/cjs-to-esm/generator",
+      "schema": "./src/ts/cjs-to-esm/schema.json",
+      "description": "Convert CommonJS TypeScript/JavaScript files to ESM"
+    },
+    "cloudscape-website#app": {
+      "factory": "./src/cloudscape-website/app/generator",
+      "schema": "./src/cloudscape-website/app/schema.json",
+      "description": "Generates a React static website based on Cloudscape"
+    },
+    "cloudscape-website#cognito-auth": {
+      "factory": "./src/cloudscape-website/cognito-auth/generator",
+      "schema": "./src/cloudscape-website/cognito-auth/schema.json",
+      "description": "Adds cognito auth to an existing cloudscape website"
+    },
+    "cloudscape-website#runtime-config": {
+      "factory": "./src/cloudscape-website/runtime-config/generator",
+      "schema": "./src/cloudscape-website/runtime-config/schema.json",
+      "description": "Adds runtime config to an existing cloudscape website"
+    },
+    "infra#app": {
+      "factory": "./src/infra/app/generator",
+      "schema": "./src/infra/app/schema.json",
+      "description": "Generates a cdk application"
+    },
+    "trpc#backend": {
+      "factory": "./src/trpc/backend/generator",
+      "schema": "./src/trpc/backend/schema.json",
+      "description": "creates a trpc backend"
+    },
+    "trpc#react": {
+      "factory": "./src/trpc/react/generator",
+      "schema": "./src/trpc/react/schema.json",
+      "description": "provides React integration to a React website"
+    },
+    "gitlab": {
+      "factory": "./src/gitlab/generator",
+      "schema": "./src/gitlab/schema.json",
+      "description": "Gitlab CI/CD pipeline"
+    }
+  }
+}

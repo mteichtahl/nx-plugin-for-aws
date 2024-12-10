@@ -1,0 +1,50 @@
+/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import { CognitoAuth as NorthstarCognitoAuth } from "@aws-northstar/ui";
+import React, { useContext } from "react";
+import Config from "../../config";
+import { RuntimeConfigContext } from "../RuntimeConfig";
+
+/**
+ * Sets up the Cognito auth.
+ *
+ * This assumes a runtime-config.json file is present at '/'. In order for Auth to be set up automatically,
+ * the runtime-config.json must have the cognitoProps set.
+ */
+const CognitoAuth: React.FC<any> = ({ children }) => {
+  const runtimeConfig = useContext(RuntimeConfigContext);
+
+  return runtimeConfig?.cognitoProps ? (
+    <NorthstarCognitoAuth
+      header={Config.applicationName}
+      userPoolId={runtimeConfig.cognitoProps.userPoolId}
+      clientId={runtimeConfig.cognitoProps.userPoolWebClientId}
+      region={runtimeConfig.cognitoProps.region}
+      identityPoolId={runtimeConfig.cognitoProps.identityPoolId}
+      <%if (allowSignup) {%>allowSignup={true}<% } %>
+      signUpAttributes={[
+        {
+            displayName: "Email",
+            name: "email",
+            required: true,
+        },
+        {
+            displayName: "Given name",
+            name: "given_name",
+            required: true,
+        },
+        {
+            displayName: "Last name",
+            name: "family_name",
+            required: true,
+        }
+      ]}
+    >
+      {children}
+    </NorthstarCognitoAuth>
+  ) : (
+    <></>
+  );
+};
+
+export default CognitoAuth;

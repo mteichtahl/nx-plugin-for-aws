@@ -1,11 +1,30 @@
-## My Project
+# nx-plugin-for-aws
 
-TODO: Fill this README out!
+## Integrate with editors
 
-Be sure to:
+Enhance your Nx experience by installing [Nx Console](https://nx.dev/nx-console) for your favorite editor. Nx Console
+provides an interactive UI to view your projects, run tasks, generate code, and more! Available for VSCode, IntelliJ and
+comes with a LSP for Vim users.
 
-* Change the title in this README
-* Edit your repository description on GitHub
+## Build
+
+```
+pnpm nx run-many --target build --all
+```
+
+## Docs
+
+Run the local docs site with:
+
+```
+pnpm nx serve docs
+```
+
+## Examples
+
+```
+pnpm nx generate @aws/nx-plugin:cloudscape-website#app infra --name=infra --directory=lib --unitTestRunner=vitest
+```
 
 ## Security
 
@@ -14,4 +33,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This project is licensed under the Apache-2.0 License.
-

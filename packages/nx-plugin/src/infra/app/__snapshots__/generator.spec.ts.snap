@@ -1,0 +1,864 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`infra generator > should add required dependencies to package.json > dependencies 1`] = `
+{
+  "@aws/pdk": "^0.25.7",
+  "aws-cdk": "^2.166.0",
+  "aws-cdk-lib": "^2.166.0",
+  "constructs": "^10.4.2",
+  "esbuild": "^0.24.0",
+  "source-map-support": "^0.5.21",
+}
+`;
+
+exports[`infra generator > should add required dependencies to package.json > dev-dependencies 1`] = `
+{
+  "@nx/eslint": "20.0.10",
+  "@nx/eslint-plugin": "20.0.10",
+  "@typescript-eslint/eslint-plugin": "^7.16.0",
+  "@typescript-eslint/parser": "^7.16.0",
+  "eslint": "~8.57.0",
+  "eslint-config-prettier": "^9.0.0",
+  "tsx": "^4.19.2",
+}
+`;
+
+exports[`infra generator > should add required dependencies to package.json > package-json 1`] = `
+{
+  "dependencies": {
+    "@aws/pdk": "^0.25.7",
+    "aws-cdk": "^2.166.0",
+    "aws-cdk-lib": "^2.166.0",
+    "constructs": "^10.4.2",
+    "esbuild": "^0.24.0",
+    "source-map-support": "^0.5.21",
+  },
+  "devDependencies": {
+    "@nx/eslint": "20.0.10",
+    "@nx/eslint-plugin": "20.0.10",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0",
+    "eslint": "~8.57.0",
+    "eslint-config-prettier": "^9.0.0",
+    "tsx": "^4.19.2",
+  },
+  "name": "@proj/source",
+  "type": "module",
+}
+`;
+
+exports[`infra generator > should configure project.json with correct targets > build-target 1`] = `
+{
+  "cache": true,
+  "dependsOn": [
+    "^build",
+  ],
+  "executor": "nx:run-commands",
+  "options": {
+    "command": "cdk synth",
+    "cwd": "packages/test",
+  },
+  "outputs": [
+    "{workspaceRoot}/dist/packages/test/cdk.out",
+  ],
+}
+`;
+
+exports[`infra generator > should configure project.json with correct targets > deploy-target 1`] = `
+{
+  "executor": "nx:run-commands",
+  "options": {
+    "command": "cdk deploy --require-approval=never --app ../../dist/packages/test/cdk.out",
+    "cwd": "packages/test",
+  },
+}
+`;
+
+exports[`infra generator > should configure project.json with correct targets > project-configuration 1`] = `
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@proj/test",
+  "projectType": "application",
+  "root": "packages/test",
+  "sourceRoot": "packages/test/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "cache": true,
+      "dependsOn": [
+        "^build",
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cdk synth",
+        "cwd": "packages/test",
+      },
+      "outputs": [
+        "{workspaceRoot}/dist/packages/test/cdk.out",
+      ],
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "assets": [
+          "packages/test/*.md",
+        ],
+        "main": "packages/test/src/index.ts",
+        "outputPath": "dist/packages/test",
+        "tsConfig": "packages/test/tsconfig.lib.json",
+      },
+      "outputs": [
+        "{options.outputPath}",
+      ],
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cdk deploy --require-approval=never --app ../../dist/packages/test/cdk.out",
+        "cwd": "packages/test",
+      },
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "options": {
+        "jestConfig": "packages/test/jest.config.ts",
+      },
+      "outputs": [
+        "{workspaceRoot}/coverage/{projectRoot}",
+      ],
+    },
+  },
+}
+`;
+
+exports[`infra generator > should generate consistent file content across runs > consistent-files 1`] = `
+{
+  "cdk.json": "{
+  "app": "tsx src/main.ts",
+  "output": "../../dist/packages/test/cdk.out",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false
+  }
+}
+",
+  "src/main.ts": "import { CdkGraph, FilterPreset, Filters } from '@aws/pdk/cdk-graph';
+import { CdkGraphDiagramPlugin } from '@aws/pdk/cdk-graph-plugin-diagram';
+import { CdkGraphThreatComposerPlugin } from '@aws/pdk/cdk-graph-plugin-threat-composer';
+import { AwsPrototypingChecks, PDKNag } from '@aws/pdk/pdk-nag';
+import { ApplicationStack } from './stacks/application-stack.js';
+
+/* eslint-disable @typescript-eslint/no-floating-promises */
+(async () => {
+  const app = PDKNag.app({
+    nagPacks: [new AwsPrototypingChecks()],
+  });
+
+  // Use this to deploy your own sandbox environment (assumes your CLI credentials)
+  new ApplicationStack(app, 'test-sandbox', {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+
+  const graph = new CdkGraph(app, {
+    plugins: [
+      new CdkGraphDiagramPlugin({
+        defaults: {
+          filterPlan: {
+            preset: FilterPreset.COMPACT,
+            filters: [{ store: Filters.pruneCustomResources() }],
+          },
+        },
+      }),
+      new CdkGraphThreatComposerPlugin(),
+    ],
+  });
+
+  app.synth();
+  await graph.report();
+})();
+",
+  "src/stacks/application-stack.ts": "import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+  }
+}
+",
+}
+`;
+
+exports[`infra generator > should generate files with correct content > application-stack-ts 1`] = `
+"import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+  }
+}
+"
+`;
+
+exports[`infra generator > should generate files with correct content > cdk-json 1`] = `
+"{
+  "app": "tsx src/main.ts",
+  "output": "../../dist/packages/test/cdk.out",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false
+  }
+}
+"
+`;
+
+exports[`infra generator > should generate files with correct content > main-ts 1`] = `
+"import { CdkGraph, FilterPreset, Filters } from '@aws/pdk/cdk-graph';
+import { CdkGraphDiagramPlugin } from '@aws/pdk/cdk-graph-plugin-diagram';
+import { CdkGraphThreatComposerPlugin } from '@aws/pdk/cdk-graph-plugin-threat-composer';
+import { AwsPrototypingChecks, PDKNag } from '@aws/pdk/pdk-nag';
+import { ApplicationStack } from './stacks/application-stack.js';
+
+/* eslint-disable @typescript-eslint/no-floating-promises */
+(async () => {
+  const app = PDKNag.app({
+    nagPacks: [new AwsPrototypingChecks()],
+  });
+
+  // Use this to deploy your own sandbox environment (assumes your CLI credentials)
+  new ApplicationStack(app, 'test-sandbox', {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+
+  const graph = new CdkGraph(app, {
+    plugins: [
+      new CdkGraphDiagramPlugin({
+        defaults: {
+          filterPlan: {
+            preset: FilterPreset.COMPACT,
+            filters: [{ store: Filters.pruneCustomResources() }],
+          },
+        },
+      }),
+      new CdkGraphThreatComposerPlugin(),
+    ],
+  });
+
+  app.synth();
+  await graph.report();
+})();
+"
+`;
+
+exports[`infra generator > should generate files with correct content > project-structure 1`] = `
+{
+  "cdk.json": "{
+  "app": "tsx src/main.ts",
+  "output": "../../dist/packages/test/cdk.out",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false
+  }
+}
+",
+  "project.json": "{
+  "name": "@proj/test",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/test/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/test/cdk.out"],
+      "dependsOn": ["^build"],
+      "options": {
+        "cwd": "packages/test",
+        "command": "cdk synth"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/test/jest.config.ts"
+      }
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/test",
+        "main": "packages/test/src/index.ts",
+        "tsConfig": "packages/test/tsconfig.lib.json",
+        "assets": ["packages/test/*.md"]
+      }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/test",
+        "command": "cdk deploy --require-approval=never --app ../../dist/packages/test/cdk.out"
+      }
+    }
+  }
+}
+",
+  "src/main.ts": "import { CdkGraph, FilterPreset, Filters } from '@aws/pdk/cdk-graph';
+import { CdkGraphDiagramPlugin } from '@aws/pdk/cdk-graph-plugin-diagram';
+import { CdkGraphThreatComposerPlugin } from '@aws/pdk/cdk-graph-plugin-threat-composer';
+import { AwsPrototypingChecks, PDKNag } from '@aws/pdk/pdk-nag';
+import { ApplicationStack } from './stacks/application-stack.js';
+
+/* eslint-disable @typescript-eslint/no-floating-promises */
+(async () => {
+  const app = PDKNag.app({
+    nagPacks: [new AwsPrototypingChecks()],
+  });
+
+  // Use this to deploy your own sandbox environment (assumes your CLI credentials)
+  new ApplicationStack(app, 'test-sandbox', {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+
+  const graph = new CdkGraph(app, {
+    plugins: [
+      new CdkGraphDiagramPlugin({
+        defaults: {
+          filterPlan: {
+            preset: FilterPreset.COMPACT,
+            filters: [{ store: Filters.pruneCustomResources() }],
+          },
+        },
+      }),
+      new CdkGraphThreatComposerPlugin(),
+    ],
+  });
+
+  app.synth();
+  await graph.report();
+})();
+",
+  "src/stacks/application-stack.ts": "import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+  }
+}
+",
+}
+`;
+
+exports[`infra generator > should generate valid CDK application code > cdk-json-content 1`] = `
+{
+  "app": "tsx src/main.ts",
+  "context": {
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/core:target-partitions": [
+      "aws",
+      "aws-cn",
+    ],
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+  },
+  "output": "../../dist/packages/test/cdk.out",
+  "watch": {
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test",
+    ],
+    "include": [
+      "**",
+    ],
+  },
+}
+`;
+
+exports[`infra generator > should generate valid CDK application code > main-ts-content 1`] = `
+"import { CdkGraph, FilterPreset, Filters } from '@aws/pdk/cdk-graph';
+import { CdkGraphDiagramPlugin } from '@aws/pdk/cdk-graph-plugin-diagram';
+import { CdkGraphThreatComposerPlugin } from '@aws/pdk/cdk-graph-plugin-threat-composer';
+import { AwsPrototypingChecks, PDKNag } from '@aws/pdk/pdk-nag';
+import { ApplicationStack } from './stacks/application-stack.js';
+
+/* eslint-disable @typescript-eslint/no-floating-promises */
+(async () => {
+  const app = PDKNag.app({
+    nagPacks: [new AwsPrototypingChecks()],
+  });
+
+  // Use this to deploy your own sandbox environment (assumes your CLI credentials)
+  new ApplicationStack(app, 'test-sandbox', {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+
+  const graph = new CdkGraph(app, {
+    plugins: [
+      new CdkGraphDiagramPlugin({
+        defaults: {
+          filterPlan: {
+            preset: FilterPreset.COMPACT,
+            filters: [{ store: Filters.pruneCustomResources() }],
+          },
+        },
+      }),
+      new CdkGraphThreatComposerPlugin(),
+    ],
+  });
+
+  app.synth();
+  await graph.report();
+})();
+"
+`;
+
+exports[`infra generator > should generate valid CDK application code > stack-ts-content 1`] = `
+"import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+  }
+}
+"
+`;
+
+exports[`infra generator > should handle custom project names correctly > custom-name-files 1`] = `
+{
+  "cdk.json": "{
+  "app": "tsx src/main.ts",
+  "output": "../../dist/packages/custom-infra/cdk.out",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-redshift:columnId": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false
+  }
+}
+",
+  "src/main.ts": "import { CdkGraph, FilterPreset, Filters } from '@aws/pdk/cdk-graph';
+import { CdkGraphDiagramPlugin } from '@aws/pdk/cdk-graph-plugin-diagram';
+import { CdkGraphThreatComposerPlugin } from '@aws/pdk/cdk-graph-plugin-threat-composer';
+import { AwsPrototypingChecks, PDKNag } from '@aws/pdk/pdk-nag';
+import { ApplicationStack } from './stacks/application-stack.js';
+
+/* eslint-disable @typescript-eslint/no-floating-promises */
+(async () => {
+  const app = PDKNag.app({
+    nagPacks: [new AwsPrototypingChecks()],
+  });
+
+  // Use this to deploy your own sandbox environment (assumes your CLI credentials)
+  new ApplicationStack(app, 'custom-infra-sandbox', {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+
+  const graph = new CdkGraph(app, {
+    plugins: [
+      new CdkGraphDiagramPlugin({
+        defaults: {
+          filterPlan: {
+            preset: FilterPreset.COMPACT,
+            filters: [{ store: Filters.pruneCustomResources() }],
+          },
+        },
+      }),
+      new CdkGraphThreatComposerPlugin(),
+    ],
+  });
+
+  app.synth();
+  await graph.report();
+})();
+",
+  "src/stacks/application-stack.ts": "import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+  }
+}
+",
+}
+`;
+
+exports[`infra generator > should handle custom project names correctly > custom-name-project-config 1`] = `
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@proj/custom-infra",
+  "projectType": "application",
+  "root": "packages/custom-infra",
+  "sourceRoot": "packages/custom-infra/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "cache": true,
+      "dependsOn": [
+        "^build",
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cdk synth",
+        "cwd": "packages/custom-infra",
+      },
+      "outputs": [
+        "{workspaceRoot}/dist/packages/custom-infra/cdk.out",
+      ],
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "assets": [
+          "packages/custom-infra/*.md",
+        ],
+        "main": "packages/custom-infra/src/index.ts",
+        "outputPath": "dist/packages/custom-infra",
+        "tsConfig": "packages/custom-infra/tsconfig.lib.json",
+      },
+      "outputs": [
+        "{options.outputPath}",
+      ],
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cdk deploy --require-approval=never --app ../../dist/packages/custom-infra/cdk.out",
+        "cwd": "packages/custom-infra",
+      },
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "options": {
+        "jestConfig": "packages/custom-infra/jest.config.ts",
+      },
+      "outputs": [
+        "{workspaceRoot}/coverage/{projectRoot}",
+      ],
+    },
+  },
+}
+`;

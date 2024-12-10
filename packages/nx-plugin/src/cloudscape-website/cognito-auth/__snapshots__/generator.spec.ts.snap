@@ -1,0 +1,238 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`cognito-auth generator > should generate files > cognito-auth-component 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import { CognitoAuth as NorthstarCognitoAuth } from '@aws-northstar/ui';
+import React, { useContext } from 'react';
+import Config from '../../config';
+import { RuntimeConfigContext } from '../RuntimeConfig';
+
+/**
+ * Sets up the Cognito auth.
+ *
+ * This assumes a runtime-config.json file is present at '/'. In order for Auth to be set up automatically,
+ * the runtime-config.json must have the cognitoProps set.
+ */
+const CognitoAuth: React.FC<any> = ({ children }) => {
+  const runtimeConfig = useContext(RuntimeConfigContext);
+
+  return runtimeConfig?.cognitoProps ? (
+    <NorthstarCognitoAuth
+      header={Config.applicationName}
+      userPoolId={runtimeConfig.cognitoProps.userPoolId}
+      clientId={runtimeConfig.cognitoProps.userPoolWebClientId}
+      region={runtimeConfig.cognitoProps.region}
+      identityPoolId={runtimeConfig.cognitoProps.identityPoolId}
+      allowSignup={true}
+      signUpAttributes={[
+        {
+          displayName: 'Email',
+          name: 'email',
+          required: true,
+        },
+        {
+          displayName: 'Given name',
+          name: 'given_name',
+          required: true,
+        },
+        {
+          displayName: 'Last name',
+          name: 'family_name',
+          required: true,
+        },
+      ]}
+    >
+      {children}
+    </NorthstarCognitoAuth>
+  ) : (
+    <></>
+  );
+};
+
+export default CognitoAuth;
+"
+`;
+
+exports[`cognito-auth generator > should generate files > identity-index 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+export * from './user-identity.js';
+export * from './userpool-with-mfa.js';
+"
+`;
+
+exports[`cognito-auth generator > should generate files > user-identity 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import {
+  IdentityPool,
+  UserPoolAuthenticationProvider,
+} from '@aws-cdk/aws-cognito-identitypool-alpha';
+import { CfnOutput, Stack } from 'aws-cdk-lib';
+import { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
+import { Construct } from 'constructs';
+import { UserPoolWithMfa } from './userpool-with-mfa.js';
+import { RuntimeConfig } from '../runtime-config/index.js';
+
+const WEB_CLIENT_ID = 'WebClient';
+
+/**
+ * Creates a UserPool and Identity Pool with sane defaults configured intended for usage from a web client.
+ */
+export class UserIdentity extends Construct {
+  public readonly identityPool: IdentityPool;
+  public readonly userPool: UserPool;
+  public readonly userPoolClient: UserPoolClient;
+
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+
+    // Unless explicitly stated, created a default Cognito User Pool and Web Client.
+    this.userPool = new UserPoolWithMfa(this, 'UserPool');
+
+    this.identityPool = new IdentityPool(this, 'IdentityPool');
+
+    const existingClient = this.userPool.node.children.find(
+      (e) => e.node.id === WEB_CLIENT_ID && e instanceof UserPoolClient
+    ) as UserPoolClient | undefined;
+
+    this.userPoolClient =
+      existingClient ??
+      this.userPool.addClient(WEB_CLIENT_ID, {
+        authFlows: {
+          userPassword: true,
+          userSrp: true,
+        },
+      });
+
+    this.identityPool.addUserPoolAuthentication(
+      new UserPoolAuthenticationProvider({
+        userPool: this.userPool,
+        userPoolClient: this.userPoolClient,
+      })
+    );
+
+    new CfnOutput(this, \`\${id}-UserPoolId\`, {
+      value: this.userPool.userPoolId,
+    });
+
+    new CfnOutput(this, \`\${id}-IdentityPoolId\`, {
+      value: this.identityPool.identityPoolId,
+    });
+
+    RuntimeConfig.ensure(this).config.cognitoProps = {
+      region: Stack.of(this).region,
+      identityPoolId: this.identityPool.identityPoolId,
+      userPoolId: this.userPool?.userPoolId,
+      userPoolWebClientId: this.userPoolClient?.userPoolClientId,
+    };
+  }
+}
+"
+`;
+
+exports[`cognito-auth generator > should generate files > userpool-with-mfa 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import { PDKNag } from '@aws/pdk/pdk-nag';
+import { Duration, Stack } from 'aws-cdk-lib';
+import {
+  AccountRecovery,
+  AdvancedSecurityMode,
+  Mfa,
+  UserPool,
+} from 'aws-cdk-lib/aws-cognito';
+import { Construct } from 'constructs';
+
+/**
+ * Configures a UserPool with MFA across SMS/TOTP using sane defaults.
+ */
+export class UserPoolWithMfa extends UserPool {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      deletionProtection: true,
+      passwordPolicy: {
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+        tempPasswordValidity: Duration.days(3),
+      },
+      mfa: Mfa.REQUIRED,
+      mfaSecondFactor: { sms: true, otp: true },
+      signInCaseSensitive: false,
+      advancedSecurityMode: AdvancedSecurityMode.ENFORCED,
+      signInAliases: { username: true, email: true },
+      accountRecovery: AccountRecovery.EMAIL_ONLY,
+      selfSignUpEnabled: true,
+      standardAttributes: {
+        phoneNumber: { required: false },
+        email: { required: true },
+        givenName: { required: true },
+        familyName: { required: true },
+      },
+      autoVerify: {
+        email: true,
+        phone: true,
+      },
+      keepOriginal: {
+        email: true,
+        phone: true,
+      },
+    });
+
+    const stack = Stack.of(this);
+
+    ['AwsSolutions-IAM5', 'AwsPrototyping-IAMNoWildcardPermissions'].forEach(
+      (RuleId) => {
+        PDKNag.addResourceSuppressionsByPathNoThrow(
+          stack,
+          \`\${PDKNag.getStackPrefix(stack)}\${id}/UserPool/smsRole/Resource\`,
+          [
+            {
+              id: RuleId,
+              reason:
+                'MFA requires sending a text to a users phone number which cannot be known at deployment time.',
+              appliesTo: ['Resource::*'],
+            },
+          ]
+        );
+      }
+    );
+  }
+}
+"
+`;
+
+exports[`cognito-auth generator > should handle main.tsx without RuntimeConfigProvider 1`] = `[Error: Could not locate the BrowserRouter element in main.tsx]`;
+
+exports[`cognito-auth generator > should handle missing main.tsx 1`] = `[Error: Can only run this generator on a project which contains packages/test-project/src/main.tsx]`;
+
+exports[`cognito-auth generator > should not be able to run the generator multiple times 1`] = `[Error: This generator has already been run on test-project.]`;
+
+exports[`cognito-auth generator > should update main.tsx when RuntimeConfigProvider exists > main-tsx-with-runtime-config 1`] = `
+"import CognitoAuth from './components/CognitoAuth';
+import RuntimeConfigProvider from './components/RuntimeConfig';
+import { RuntimeConfigProvider } from './components/RuntimeConfig';
+import { BrowserRouter } from 'react-router-dom';
+export function App() {
+  return (
+    <RuntimeConfigProvider>
+      <CognitoAuth>
+        <RuntimeConfigProvider>
+          <BrowserRouter>Hello World</BrowserRouter>
+        </RuntimeConfigProvider>
+      </CognitoAuth>
+    </RuntimeConfigProvider>
+  );
+}
+"
+`;
+
+exports[`cognito-auth generator > should update shared constructs index.ts > common/constructs-index 1`] = `
+"export * from './identity/index.js';
+export * from './runtime-config/index.js';
+"
+`;

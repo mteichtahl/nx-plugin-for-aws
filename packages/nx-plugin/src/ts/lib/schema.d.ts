@@ -1,0 +1,13 @@
+import { LibraryGeneratorSchema } from "@nx/js/src/utils/schema";
+
+export interface TsLibGeneratorSchema {
+  name: LibraryGeneratorSchema['name'];
+  directory?: string;
+  unitTestRunner?: LibraryGeneratorSchema['unitTestRunner'];
+  // TODO: test and consider exposing alternate bundlers
+  // bundler?: LibraryGeneratorSchema['bundler'];
+  linter?: LibraryGeneratorSchema['linter'];
+  scope?: string;
+  subDirectory?: string;
+  skipInstall?: boolean;
+};

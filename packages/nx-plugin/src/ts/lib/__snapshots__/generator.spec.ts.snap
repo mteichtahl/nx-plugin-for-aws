@@ -1,0 +1,260 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ts lib generator > should generate library with custom directory > custom-dir-index.ts 1`] = `
+"export function hello() {
+    return "Hello!";
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with custom directory > custom-dir-project.json 1`] = `
+"{
+  "name": "@proj/test-lib",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/test-lib/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "dependsOn": [
+        "compile",
+        "lint",
+        "test"
+      ]
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
+      "options": {
+        "reportsDirectory": "../../coverage/libs/test-lib"
+      }
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/libs/test-lib",
+        "main": "libs/test-lib/src/index.ts",
+        "tsConfig": "libs/test-lib/tsconfig.lib.json",
+        "assets": [
+          "libs/test-lib/*.md"
+        ]
+      }
+    }
+  }
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with custom directory > custom-dir-tsconfig.json 1`] = `
+"{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {},
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with custom scope > scoped-project.json 1`] = `
+"{
+  "name": "@custom/test-lib",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "test-lib/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "dependsOn": [
+        "compile",
+        "lint",
+        "test"
+      ]
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
+      "options": {
+        "reportsDirectory": "../coverage/test-lib"
+      }
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/test-lib",
+        "main": "test-lib/src/index.ts",
+        "tsConfig": "test-lib/tsconfig.lib.json",
+        "assets": [
+          "test-lib/*.md"
+        ]
+      }
+    }
+  }
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with default options > index.ts 1`] = `
+"export function hello() {
+    return "Hello!";
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with default options > project.json 1`] = `
+"{
+  "name": "@proj/test-lib",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "test-lib/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "dependsOn": [
+        "compile",
+        "lint",
+        "test"
+      ]
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
+      "options": {
+        "reportsDirectory": "../coverage/test-lib"
+      }
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/test-lib",
+        "main": "test-lib/src/index.ts",
+        "tsConfig": "test-lib/tsconfig.lib.json",
+        "assets": [
+          "test-lib/*.md"
+        ]
+      }
+    }
+  }
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with default options > tsconfig.json 1`] = `
+"{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {},
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with subdirectory > subdir-index.ts 1`] = `
+"export function hello() {
+    return "Hello!";
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with subdirectory > subdir-project.json 1`] = `
+"{
+  "name": "@proj/test-lib",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "feature/test-lib/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "dependsOn": [
+        "compile",
+        "lint",
+        "test"
+      ]
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
+      "options": {
+        "reportsDirectory": "../../coverage/feature/test-lib"
+      }
+    },
+    "compile": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/feature/test-lib",
+        "main": "feature/test-lib/src/index.ts",
+        "tsConfig": "feature/test-lib/tsconfig.lib.json",
+        "assets": [
+          "feature/test-lib/*.md"
+        ]
+      }
+    }
+  }
+}
+"
+`;
+
+exports[`ts lib generator > should generate library with subdirectory > subdir-tsconfig.json 1`] = `
+"{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {},
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}
+"
+`;

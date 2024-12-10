@@ -1,0 +1,113 @@
+import { Tree } from "@nx/devkit";
+import { createTreeWithEmptyWorkspace } from "nx/src/devkit-testing-exports";
+import { reactGenerator } from "./generator";
+
+describe("trpc react generator", () => {
+  let tree: Tree;
+
+  beforeEach(() => {
+    tree = createTreeWithEmptyWorkspace();
+
+    // Mock frontend project configuration
+    tree.write(
+      "apps/frontend/project.json",
+      JSON.stringify({
+        name: "frontend",
+        root: "apps/frontend",
+        sourceRoot: "apps/frontend/src",
+      })
+    );
+
+    // Mock backend project configuration
+    tree.write(
+      "apps/backend/project.json",
+      JSON.stringify({
+        name: "backend",
+        root: "apps/backend",
+        sourceRoot: "apps/backend/src",
+        metadata: {
+          apiName: "TestApi",
+        },
+      })
+    );
+
+    // Mock main.tsx file
+    tree.write(
+      "apps/frontend/src/main.tsx",
+      `
+import { App } from './app';
+import { BrowserRouter } from 'react-router-dom';
+
+export function Main() {
+  return <BrowserRouter><App /></BrowserRouter>;
+}
+`
+    );
+  });
+
+  it("should generate trpc react files", async () => {
+    await reactGenerator(tree, {
+      frontendProjectName: "frontend",
+      backendProjectName: "backend",
+      auth: "None",
+    });
+
+    // Verify generated files
+    expect(
+      tree.exists("apps/frontend/src/components/TRPCClientProvider")
+    ).toBeTruthy();
+    expect(
+      tree.exists("apps/frontend/src/hooks/useTrpc.tsx")
+    ).toBeTruthy();
+
+    // Create snapshots of generated files
+    expect(
+      tree.read("apps/frontend/src/hooks/useTrpc.tsx", "utf-8")
+    ).toMatchSnapshot("useTrpc.tsx");
+    expect(
+      tree.read("apps/frontend/src/components/TRPCClientProvider/index.tsx", "utf-8")
+    ).toMatchSnapshot("TRPCClientProvider.tsx");
+  });
+
+  it("should modify main.tsx correctly", async () => {
+    await reactGenerator(tree, {
+      frontendProjectName: "frontend",
+      backendProjectName: "backend",
+      auth: "None",
+    });
+
+    const mainTsxContent = tree.read("apps/frontend/src/main.tsx", "utf-8");
+
+    // Create snapshot of modified main.tsx
+    expect(mainTsxContent).toMatchSnapshot("main.tsx");
+  });
+
+  it("should add required dependencies", async () => {
+    await reactGenerator(tree, {
+      frontendProjectName: "frontend",
+      backendProjectName: "backend",
+      auth: "None",
+    });
+
+    const packageJson = JSON.parse(tree.read("package.json", "utf-8"));
+
+    // Verify dependencies were added
+    expect(packageJson.dependencies["@trpc/react-query"]).toBeDefined();
+    expect(packageJson.dependencies["@tanstack/react-query"]).toBeDefined();
+  });
+
+  it("should handle IAM auth option", async () => {
+    await reactGenerator(tree, {
+      frontendProjectName: "frontend",
+      backendProjectName: "backend",
+      auth: "IAM",
+    });
+
+    const trpcProviderContent = tree.read(
+      "apps/frontend/src/components/TRPCClientProvider/index.tsx",
+      "utf-8"
+    );
+
+    expect(trpcProviderContent).toMatchSnapshot("TRPCClientProvider-IAM.tsx");
+  });
+});

@@ -1,0 +1,112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`runtime-config generator > should generate runtime config files > runtime-config-component.tsx 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import ErrorMessage from '@aws-northstar/ui/components/CognitoAuth/components/ErrorMessage';
+import { Spinner } from '@cloudscape-design/components';
+import React, { createContext, useEffect, useState } from 'react';
+import type { IRuntimeConfig } from ':proj/common-types';
+
+/**
+ * Context for storing the runtimeConfig.
+ */
+export const RuntimeConfigContext = createContext<IRuntimeConfig | undefined>(
+  undefined
+);
+
+/**
+ * Sets up the runtimeConfig.
+ *
+ * This assumes a runtime-config.json file is present at '/'.
+ */
+const RuntimeConfigProvider: React.FC<any> = ({ children }) => {
+  const [runtimeConfig, setRuntimeConfig] = useState<
+    IRuntimeConfig | undefined
+  >();
+  const [error, setError] = useState<string | undefined>();
+
+  useEffect(() => {
+    fetch('/runtime-config.json')
+      .then((response) => {
+        return response.json();
+      })
+      .then((_runtimeConfig) => {
+        setRuntimeConfig(_runtimeConfig as IRuntimeConfig);
+      })
+      .catch(() => {
+        setError('No runtime-config.json detected');
+      });
+  }, [setRuntimeConfig]);
+
+  return error ? (
+    <ErrorMessage>{error}</ErrorMessage>
+  ) : runtimeConfig ? (
+    <RuntimeConfigContext.Provider value={runtimeConfig}>
+      {children}
+    </RuntimeConfigContext.Provider>
+  ) : (
+    <Spinner></Spinner>
+  );
+};
+
+export default RuntimeConfigProvider;
+"
+`;
+
+exports[`runtime-config generator > should generate shared constructs > common/constructs-index.ts 1`] = `
+"export * from './runtime-config.js';
+"
+`;
+
+exports[`runtime-config generator > should generate shared constructs > runtime-config.ts 1`] = `
+"/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 */
+import type { IRuntimeConfig } from ':proj/common-types';
+import { Stack } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+const RuntimeConfigKey = '__RuntimeConfig__';
+
+export class RuntimeConfig extends Construct {
+  static ensure(scope: Construct): RuntimeConfig {
+    const stack = Stack.of(scope);
+    return (
+      RuntimeConfig.of(scope) ?? new RuntimeConfig(stack, RuntimeConfigKey)
+    );
+  }
+
+  static of(scope: Construct): RuntimeConfig | undefined {
+    const stack = Stack.of(scope);
+    return stack.node.tryFindChild(RuntimeConfigKey) as
+      | RuntimeConfig
+      | undefined;
+  }
+
+  private readonly _runtimeConfig: IRuntimeConfig = {};
+
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+  }
+
+  get config(): IRuntimeConfig {
+    return this._runtimeConfig;
+  }
+}
+"
+`;
+
+exports[`runtime-config generator > should modify main.tsx correctly > modified-main.tsx 1`] = `
+"import RuntimeConfigProvider from './components/RuntimeConfig';
+import { BrowserRouter } from 'react-router-dom';
+export function App() {
+  return (
+    <RuntimeConfigProvider>
+      <BrowserRouter>
+        <div>Test App</div>
+      </BrowserRouter>
+    </RuntimeConfigProvider>
+  );
+}
+"
+`;
