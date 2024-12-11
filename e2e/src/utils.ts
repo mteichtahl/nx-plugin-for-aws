@@ -1,9 +1,6 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
-import {
-  output,
-  PackageManager
-} from '@nx/devkit';
+import { output, PackageManager } from '@nx/devkit';
 import { existsSync } from 'fs';
 
 export interface RunCmdOpts {
@@ -28,13 +25,15 @@ export function runCLI(
 ): string {
   try {
     const pm = getPackageManagerCommand();
-    const commandToRun = `${opts.prefixWithPackageManagerCmd !== false ? `${pm.runNxSilent} ` : ''}${command} ${
-      opts.verbose ? ' --verbose' : ''
-    }${opts.redirectStderr ? ' 2>&1' : ''}`;
+    const commandToRun = `${
+      opts.prefixWithPackageManagerCmd !== false ? `${pm.runNxSilent} ` : ''
+    }${command} ${opts.verbose ? ' --verbose' : ''}${
+      opts.redirectStderr ? ' 2>&1' : ''
+    }`;
     const logs = execSync(commandToRun, {
       cwd: opts.cwd || tmpProjPath(),
       env: {
-        "PATH": process.env.PATH,
+        PATH: process.env.PATH,
         ...opts.env,
       },
       encoding: 'utf-8',
@@ -57,7 +56,7 @@ export function runCLI(
     if (opts.silenceError) {
       return stripConsoleColors(e.stdout + e.stderr);
     } else {
-      logError(`Original command: ${command}`, `${e.stdout}\n\n${e.stderr}`);
+      logError(`Original command: ${command}`, `${e}`);
       throw e;
     }
   }

@@ -14,7 +14,7 @@ describe('e2e tests', () => {
 
   it('should generate all packages and build successfully', async () => {
     runCLI(
-      `pnpx create-nx-workspace e2e-test --ci=skip --skipGit --preset=ts --interactive=false`,
+      `pnpm dlx create-nx-workspace e2e-test --ci=skip --skipGit --preset=ts --interactive=false`,
       { prefixWithPackageManagerCmd: false, redirectStderr: true }
     );
 
