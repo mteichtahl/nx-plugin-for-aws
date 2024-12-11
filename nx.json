@@ -18,6 +18,11 @@
     "sharedGlobals": []
   },
   "targetDefaults": {
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/packages/nx-plugin"
+      }
+    },
     "@nx/js:swc": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -109,10 +114,7 @@
       }
     },
     "version": {
-      "conventionalCommits": true,
-      "generatorOptions": {
-        "packageRoot": "dist/packages/nx-plugin"
-      }
+      "conventionalCommits": true
     }
   }
 }

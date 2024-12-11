@@ -25,7 +25,7 @@ jobs:
       latest_commit: ${{ steps.git_remote.outputs.latest_commit }}
       skip_release: ${{ steps.should_skip_release.outputs.skip_release }}
     env:
-      CI: "true"
+      CI: 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Coverage reporter
         uses: romeovs/lcov-reporter-action@v0.4.0
         with:
-            delete-old-comments: true
+          delete-old-comments: true
       - name: Check for new commits
         id: git_remote
         run: echo "latest_commit=$(git ls-remote origin -h ${{ github.ref }} | cut -f1)" >> $GITHUB_OUTPUT
@@ -48,19 +48,20 @@ jobs:
       - name: Release
         if: ${{ success() && steps.should_skip_release.outputs.skip_release != 'true' && github.event_name == 'push' && steps.git_remote.outputs.latest_commit == github.sha }}
         env:
-            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-            NPM_CONFIG_PROVENANCE: true
-            NPM_DIST_TAG: latest
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            HUSKY: '0'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+          NPM_DIST_TAG: latest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUSKY: '0'
         run: |
-            pnpm nx release --first-release
+          pnpm nx release --skip-publish --first-release
+          pnpm nx release publish
       - name: Upload artifact
         if: ${{ steps.git_remote.outputs.latest_commit == github.sha }}
         uses: actions/upload-artifact@v4.4.0
         with:
-            name: build-artifact
-            path: dist
+          name: build-artifact
+          path: dist
   deploy_docs:
     name: Deploy Docs
     runs-on: ubuntu-latest
