@@ -24,13 +24,14 @@ export default async function ({ provide }) {
     );
 
     try {
-      execSync(`npm unpublish --force && npm publish --force`, {
+      execSync(`npm unpublish --force || npm publish --force`, {
         env: process.env,
         cwd: join(__dirname, '../../dist/packages/nx-plugin'),
       });
       console.info('Package published to local registry');
     } catch (err) {
       console.error(`Package couldn't be published to local registry: ${err}`);
+      throw err;
     }
   } catch (err) {
     console.error(`Failed to start local registry: ${err}`);
