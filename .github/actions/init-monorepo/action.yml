@@ -29,6 +29,7 @@ runs:
       shell: bash
       run: pnpm i --frozen-lockfile --prefer-offline
     - name: Set git identity
+      shell: bash
       run: |-
         git config user.name "release"
         git config user.email "release@github.com"
