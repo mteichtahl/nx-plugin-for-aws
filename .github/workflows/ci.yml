@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
@@ -12,15 +13,23 @@ permissions:
   statuses: write
   checks: write
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
-  main:
+  build_and_release:
+    name: Build & Release
     runs-on: ubuntu-latest
+    outputs:
+      latest_commit: ${{ steps.git_remote.outputs.latest_commit }}
+      skip_release: ${{ steps.should_skip_release.outputs.skip_release }}
+    env:
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup-monorepo
+      - uses: ./.github/actions/init-monorepo
       - name: Build
         run: pnpm nx run-many --target build --all --output-style=stream
       - name: E2E Tests
@@ -29,11 +38,45 @@ jobs:
         uses: romeovs/lcov-reporter-action@v0.4.0
         with:
             delete-old-comments: true
+      - name: Check for new commits
+        id: git_remote
+        run: echo "latest_commit=$(git ls-remote origin -h ${{ github.ref }} | cut -f1)" >> $GITHUB_OUTPUT
+      - name: Should skip release
+        id: should_skip_release
+        run: echo "skip_release=$(git log --oneline -1 | grep -qE 'build\(?.*\)?:|docs\(?.*\)?:|chore\(?.*\)?:|refactor\(?.*\)?:|test\(?.*\)?:' && echo true || echo false)" >> $GITHUB_OUTPUT
       - name: Release
-        if: ${{ success() && (github.event_name != 'pull_request') }}
+        if: ${{ success() && steps.should_skip_release.outputs.skip_release != 'true' && github.event_name == 'push' && steps.git_remote.outputs.latest_commit == github.sha }}
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HUSKY: '0'
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            NPM_CONFIG_PROVENANCE: true
+            NPM_DIST_TAG: latest
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            HUSKY: '0'
         run: |
-          pnpm nx release --first-release
+            pnpm nx release --first-release
+      - name: Upload artifact
+        if: ${{ steps.git_remote.outputs.latest_commit == github.sha }}
+        uses: actions/upload-artifact@v4.4.0
+        with:
+            name: build-artifact
+            path: dist
+  deploy_docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    needs: build_and_release
+    if: ${{ needs.build_and_release.outputs.skip_release != 'true' && github.event_name == 'push' && needs.build_and_release.outputs.latest_commit == github.sha }}
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: dist
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist/docs'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
