@@ -39,6 +39,7 @@ jobs:
         uses: romeovs/lcov-reporter-action@v0.4.0
         with:
           delete-old-comments: true
+          lcov-file: ./coverage/packages/nx-plugin/lcov.info
       - name: Check for new commits
         id: git_remote
         run: echo "latest_commit=$(git ls-remote origin -h ${{ github.ref }} | cut -f1)" >> $GITHUB_OUTPUT
