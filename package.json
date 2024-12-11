@@ -2,13 +2,16 @@
   "name": "@aws/nx-plugin-source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "prepare": "husky || true"
+  },
   "private": true,
   "devDependencies": {
-    "@types/fs-extra": "11.0.4",
     "@aws-sdk/client-wafv2": "*",
     "@babel/core": "^7.14.5",
     "@babel/preset-react": "^7.14.5",
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
     "@docusaurus/module-type-aliases": "2.1.0",
     "@nx-plus/docusaurus": "15.0.0-rc.0",
     "@nx/cypress": "20.0.10",
@@ -33,6 +36,7 @@
     "@swc/helpers": "~0.5.12",
     "@testing-library/react": "15.0.6",
     "@types/aws-lambda": "*",
+    "@types/fs-extra": "11.0.4",
     "@types/lodash.kebabcase": "4.1.9",
     "@types/minimatch": "^5.1.2",
     "@types/node": "18.16.9",
@@ -44,7 +48,9 @@
     "@vitejs/plugin-react-swc": "^3.5.0",
     "@vitest/coverage-v8": "^1.6.0",
     "@vitest/ui": "^1.6.0",
+    "commitizen": "^4.3.1",
     "cypress": "^13.13.0",
+    "cz-conventional-changelog": "^3.3.0",
     "esbuild": "*",
     "eslint": "~8.57.0",
     "eslint-config-prettier": "^9.1.0",
@@ -55,7 +61,9 @@
     "eslint-plugin-react": "7.35.0",
     "eslint-plugin-react-hooks": "4.6.0",
     "fs-extra": "^11.2.0",
+    "husky": "^9.1.7",
     "jsdom": "~22.1.0",
+    "lint-staged": "^15.2.11",
     "lodash.kebabcase": "4.1.1",
     "minimatch": "^10.0.1",
     "nx": "19.8.2",
@@ -96,5 +104,10 @@
     "source-map-support": "*",
     "tslib": "^2.6.3",
     "zod": "*"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   }
 }

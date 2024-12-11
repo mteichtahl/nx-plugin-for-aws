@@ -25,14 +25,14 @@ jobs:
         run: pnpm nx run-many --target build --all --output-style=stream
       - name: E2E Tests
         run: pnpm nx run @aws/nx-plugin-e2e:test
-      - name: Coveralls
-        uses: coverallsapp/github-action@v2
+      - name: Coverage reporter
+        uses: romeovs/lcov-reporter-action@v0.4.0
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+            delete-old-comments: true
       - name: Release
         if: ${{ success() && (github.event_name != 'pull_request') }}
         env:
-          NPM_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: '0'
         run: |
