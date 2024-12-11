@@ -1,7 +1,7 @@
 # $2 contains the source of the commit message.
 # It can be message, template, merge, squash, or commit (for git commit --amend)
-echo $2 $1
-if [ "$2" = "commit" ]; then
+
+if [ "$2" = "commit" ] || [ "$2" = "message" ]; then
   echo "Skipping prepare-commit-msg hook due to amend."
   exit 0
 fi
