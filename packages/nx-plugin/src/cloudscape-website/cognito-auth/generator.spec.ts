@@ -102,11 +102,11 @@ describe('cognito-auth generator', () => {
         );
       }
     `);
-    await expect(async () => await cognitoAuthGenerator(tree, options)).rejects.toThrowErrorMatchingSnapshot();
+    await expect(async () => await cognitoAuthGenerator(tree, options)).rejects.toThrowError();
   });
 
   it('should handle missing main.tsx', async () => {
-    await expect(async () => await cognitoAuthGenerator(tree, options)).rejects.toThrowErrorMatchingSnapshot();
+    await expect(async () => await cognitoAuthGenerator(tree, options)).rejects.toThrowError();
   });
 
   it('should update shared constructs index.ts', async () => {

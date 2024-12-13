@@ -31,6 +31,7 @@ export async function reactGenerator(
     tree,
     options.backendProjectName
   );
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const apiName = (backendProjectConfig.metadata as any)?.apiName;
   generateFiles(
     tree,
@@ -88,7 +89,7 @@ export async function reactGenerator(
         if (node.tagName.getText() !== 'App') {
           return node;
         } else {
-            locatedNode = true;
+          locatedNode = true;
         }
 
         return factory.createJsxElement(
@@ -116,10 +117,7 @@ export async function reactGenerator(
 
   addDependenciesToPackageJson(
     tree,
-    withVersions([
-      "@trpc/react-query",
-      "@tanstack/react-query",
-    ]),
+    withVersions(['@trpc/react-query', '@tanstack/react-query']),
     {}
   );
   await formatFiles(tree);

@@ -37,13 +37,15 @@ describe('shared-constructs utils', () => {
   beforeEach(() => {
     tree = createTreeWithEmptyWorkspace();
     vi.clearAllMocks();
-    vi.spyOn(npmScopeUtils, 'getNpmScopePrefix').mockReturnValue('@test-scope/');
+    vi.spyOn(npmScopeUtils, 'getNpmScopePrefix').mockReturnValue(
+      '@test-scope/'
+    );
     vi.spyOn(npmScopeUtils, 'toScopeAlias').mockReturnValue(':test-scope');
   });
 
   describe('sharedConstructsGenerator', () => {
     it('should generate type definitions when they do not exist', async () => {
-      vi.spyOn(tree, 'exists').mockImplementation((path) => false);
+      vi.spyOn(tree, 'exists').mockImplementation(() => false);
 
       await sharedConstructsGenerator(tree);
 
@@ -62,7 +64,7 @@ describe('shared-constructs utils', () => {
     });
 
     it('should generate shared constructs when they do not exist', async () => {
-      vi.spyOn(tree, 'exists').mockImplementation((path) => false);
+      vi.spyOn(tree, 'exists').mockImplementation(() => false);
 
       await sharedConstructsGenerator(tree);
 
@@ -84,14 +86,14 @@ describe('shared-constructs utils', () => {
     });
 
     it('should add required dependencies when generating shared constructs', async () => {
-      vi.spyOn(tree, 'exists').mockImplementation((path) => false);
+      vi.spyOn(tree, 'exists').mockImplementation(() => false);
 
       await sharedConstructsGenerator(tree);
 
       expect(addDependenciesToPackageJson).toHaveBeenCalledWith(
         tree,
         expect.objectContaining({
-          'constructs': expect.any(String),
+          constructs: expect.any(String),
           'aws-cdk-lib': expect.any(String),
         }),
         {}
@@ -99,7 +101,7 @@ describe('shared-constructs utils', () => {
     });
 
     it('should not generate type definitions when they already exist', async () => {
-      vi.spyOn(tree, 'exists').mockImplementation((path) => 
+      vi.spyOn(tree, 'exists').mockImplementation((path) =>
         path.includes(TYPE_DEFINITIONS_DIR)
       );
 
@@ -112,7 +114,7 @@ describe('shared-constructs utils', () => {
     });
 
     it('should not generate shared constructs when they already exist', async () => {
-      vi.spyOn(tree, 'exists').mockImplementation((path) => 
+      vi.spyOn(tree, 'exists').mockImplementation((path) =>
         path.includes(SHARED_CONSTRUCTS_DIR)
       );
 
