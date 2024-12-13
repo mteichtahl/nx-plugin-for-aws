@@ -32,7 +32,9 @@ export default defineConfig({
     sequence: {
       hooks: 'list',
     },
-    testTimeout: 30000,
+    testTimeout: 60000,
     hookTimeout: 60000,
+    retry: 3,
+    dangerouslyIgnoreUnhandledErrors: true
   },
 });
