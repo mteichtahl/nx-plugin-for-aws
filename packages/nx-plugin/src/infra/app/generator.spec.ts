@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import { Tree, readProjectConfiguration } from '@nx/devkit';
 
@@ -6,7 +10,11 @@ import { InfraGeneratorSchema } from './schema';
 
 describe('infra generator', () => {
   let tree: Tree;
-  const options: InfraGeneratorSchema = { name: 'test', directory: 'packages', skipInstall: true };
+  const options: InfraGeneratorSchema = {
+    name: 'test',
+    directory: 'packages',
+    skipInstall: true,
+  };
 
   beforeEach(() => {
     tree = createTreeWithEmptyWorkspace();
@@ -15,24 +23,34 @@ describe('infra generator', () => {
   it('should generate files with correct content', async () => {
     await infraGenerator(tree, options);
     const config = readProjectConfiguration(tree, '@proj/test');
-    
+
     expect(config.projectType).toEqual('application');
 
     // Verify files are generated
     expect(tree.exists('packages/test/cdk.json')).toBeTruthy();
     expect(tree.exists('packages/test/src/main.ts')).toBeTruthy();
-    expect(tree.exists('packages/test/src/stacks/application-stack.ts')).toBeTruthy();
+    expect(
+      tree.exists('packages/test/src/stacks/application-stack.ts')
+    ).toBeTruthy();
 
     // Create snapshots of generated files
-    expect(tree.read('packages/test/cdk.json').toString()).toMatchSnapshot('cdk-json');
-    expect(tree.read('packages/test/src/main.ts').toString()).toMatchSnapshot('main-ts');
-    expect(tree.read('packages/test/src/stacks/application-stack.ts').toString()).toMatchSnapshot('application-stack-ts');
+    expect(tree.read('packages/test/cdk.json').toString()).toMatchSnapshot(
+      'cdk-json'
+    );
+    expect(tree.read('packages/test/src/main.ts').toString()).toMatchSnapshot(
+      'main-ts'
+    );
+    expect(
+      tree.read('packages/test/src/stacks/application-stack.ts').toString()
+    ).toMatchSnapshot('application-stack-ts');
 
     // Snapshot the entire project structure
     const projectFiles = {
       'cdk.json': tree.read('packages/test/cdk.json').toString(),
       'src/main.ts': tree.read('packages/test/src/main.ts').toString(),
-      'src/stacks/application-stack.ts': tree.read('packages/test/src/stacks/application-stack.ts').toString(),
+      'src/stacks/application-stack.ts': tree
+        .read('packages/test/src/stacks/application-stack.ts')
+        .toString(),
       'project.json': tree.read('packages/test/project.json').toString(),
     };
     expect(projectFiles).toMatchSnapshot('project-structure');
@@ -67,16 +85,17 @@ describe('infra generator', () => {
       executor: 'nx:run-commands',
       options: {
         cwd: 'packages/test',
-        command: 'cdk deploy --require-approval=never --app ../../dist/packages/test/cdk.out',
+        command:
+          'cdk deploy --require-approval=never --app ../../dist/packages/test/cdk.out',
       },
     });
   });
 
   it('should add required dependencies to package.json', async () => {
     await infraGenerator(tree, options);
-    
+
     const packageJson = JSON.parse(tree.read('package.json').toString());
-    
+
     // Snapshot entire package.json
     expect(packageJson).toMatchSnapshot('package-json');
 
@@ -91,13 +110,13 @@ describe('infra generator', () => {
       '@aws/pdk': expect.any(String),
       'aws-cdk-lib': expect.any(String),
       'aws-cdk': expect.any(String),
-      'esbuild': expect.any(String),
-      'constructs': expect.any(String),
+      esbuild: expect.any(String),
+      constructs: expect.any(String),
       'source-map-support': expect.any(String),
     });
 
     expect(packageJson.devDependencies).toMatchObject({
-      'tsx': expect.any(String),
+      tsx: expect.any(String),
     });
   });
 
@@ -109,7 +128,9 @@ describe('infra generator', () => {
     expect(mainTs).toMatchSnapshot('main-ts-content');
 
     // Test application-stack.ts content
-    const stackTs = tree.read('packages/test/src/stacks/application-stack.ts').toString();
+    const stackTs = tree
+      .read('packages/test/src/stacks/application-stack.ts')
+      .toString();
     expect(stackTs).toMatchSnapshot('stack-ts-content');
 
     // Test cdk.json content
@@ -118,14 +139,14 @@ describe('infra generator', () => {
   });
 
   it('should handle custom project names correctly', async () => {
-    const customOptions: InfraGeneratorSchema = { 
+    const customOptions: InfraGeneratorSchema = {
       name: 'custom-infra',
       directory: 'packages',
-      skipInstall: true 
+      skipInstall: true,
     };
-    
+
     await infraGenerator(tree, customOptions);
-    
+
     // Snapshot project configuration with custom name
     const config = readProjectConfiguration(tree, '@proj/custom-infra');
     expect(config).toMatchSnapshot('custom-name-project-config');
@@ -133,13 +154,17 @@ describe('infra generator', () => {
     // Verify file paths with custom name
     expect(tree.exists('packages/custom-infra/cdk.json')).toBeTruthy();
     expect(tree.exists('packages/custom-infra/src/main.ts')).toBeTruthy();
-    expect(tree.exists('packages/custom-infra/src/stacks/application-stack.ts')).toBeTruthy();
+    expect(
+      tree.exists('packages/custom-infra/src/stacks/application-stack.ts')
+    ).toBeTruthy();
 
     // Snapshot files with custom name
     const customFiles = {
       'cdk.json': tree.read('packages/custom-infra/cdk.json').toString(),
       'src/main.ts': tree.read('packages/custom-infra/src/main.ts').toString(),
-      'src/stacks/application-stack.ts': tree.read('packages/custom-infra/src/stacks/application-stack.ts').toString(),
+      'src/stacks/application-stack.ts': tree
+        .read('packages/custom-infra/src/stacks/application-stack.ts')
+        .toString(),
     };
     expect(customFiles).toMatchSnapshot('custom-name-files');
   });
@@ -150,7 +175,9 @@ describe('infra generator', () => {
     const firstRunFiles = {
       'cdk.json': tree.read('packages/test/cdk.json').toString(),
       'src/main.ts': tree.read('packages/test/src/main.ts').toString(),
-      'src/stacks/application-stack.ts': tree.read('packages/test/src/stacks/application-stack.ts').toString(),
+      'src/stacks/application-stack.ts': tree
+        .read('packages/test/src/stacks/application-stack.ts')
+        .toString(),
     };
 
     // Reset tree and run again
@@ -159,7 +186,9 @@ describe('infra generator', () => {
     const secondRunFiles = {
       'cdk.json': tree.read('packages/test/cdk.json').toString(),
       'src/main.ts': tree.read('packages/test/src/main.ts').toString(),
-      'src/stacks/application-stack.ts': tree.read('packages/test/src/stacks/application-stack.ts').toString(),
+      'src/stacks/application-stack.ts': tree
+        .read('packages/test/src/stacks/application-stack.ts')
+        .toString(),
     };
 
     // Compare runs

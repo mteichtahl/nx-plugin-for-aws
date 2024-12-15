@@ -13,13 +13,13 @@ exports[`infra generator > should add required dependencies to package.json > de
 
 exports[`infra generator > should add required dependencies to package.json > dev-dependencies 1`] = `
 {
+  "@eslint/js": "^9.8.0",
   "@nx/eslint": "20.0.10",
   "@nx/eslint-plugin": "20.0.10",
-  "@typescript-eslint/eslint-plugin": "^7.16.0",
-  "@typescript-eslint/parser": "^7.16.0",
-  "eslint": "~8.57.0",
+  "eslint": "^9.8.0",
   "eslint-config-prettier": "^9.0.0",
   "tsx": "^4.19.2",
+  "typescript-eslint": "^8.0.0",
 }
 `;
 
@@ -34,13 +34,13 @@ exports[`infra generator > should add required dependencies to package.json > pa
     "source-map-support": "^0.5.21",
   },
   "devDependencies": {
+    "@eslint/js": "^9.8.0",
     "@nx/eslint": "20.0.10",
     "@nx/eslint-plugin": "20.0.10",
-    "@typescript-eslint/eslint-plugin": "^7.16.0",
-    "@typescript-eslint/parser": "^7.16.0",
-    "eslint": "~8.57.0",
+    "eslint": "^9.8.0",
     "eslint-config-prettier": "^9.0.0",
     "tsx": "^4.19.2",
+    "typescript-eslint": "^8.0.0",
   },
   "name": "@proj/source",
   "type": "module",

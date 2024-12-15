@@ -1,4 +1,13 @@
-import { formatFiles, generateFiles, Tree, joinPathFragments } from '@nx/devkit';
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import {
+  formatFiles,
+  generateFiles,
+  Tree,
+  joinPathFragments,
+} from '@nx/devkit';
 import { GitlabGeneratorSchema } from './schema';
 
 export async function gitlabGenerator(

@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import React from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
@@ -35,8 +39,9 @@ const FeatureList: FeatureItem[] = [
     description: (
       <>
         Generators get you started quickly, but you can fully customise your
-        projects without relying on features being available in PDK/Projen.
-        You have control of all project files, like <code>package.json</code> or <code>tsconfig.json</code>
+        projects without relying on features being available in PDK/Projen. You
+        have control of all project files, like <code>package.json</code> or{' '}
+        <code>tsconfig.json</code>
       </>
     ),
   },
@@ -46,7 +51,11 @@ function Feature({ title, Svg, description }: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        { Svg ? <Svg className={styles.featureSvg} role="img" /> : <div style={{ height: 210 }}></div> }
+        {Svg ? (
+          <Svg className={styles.featureSvg} role="img" />
+        ) : (
+          <div style={{ height: 210 }}></div>
+        )}
       </div>
       <div className="text--center padding-horiz--md">
         <h3>{title}</h3>

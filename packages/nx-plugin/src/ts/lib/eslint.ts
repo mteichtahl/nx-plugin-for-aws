@@ -1,19 +1,38 @@
-import { readProjectConfiguration, Tree, updateProjectConfiguration, updateNxJson, readNxJson } from "@nx/devkit";
-import { ConfigureProjectOptions } from "./types";
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import {
+  readProjectConfiguration,
+  Tree,
+  updateProjectConfiguration,
+  updateNxJson,
+  readNxJson,
+} from '@nx/devkit';
+import { ConfigureProjectOptions } from './types';
 
-
-export const configureEslint = (tree: Tree, options: ConfigureProjectOptions) => {
+export const configureEslint = (
+  tree: Tree,
+  options: ConfigureProjectOptions
+) => {
   // Configure the lint task
-  const projectConfiguration = readProjectConfiguration(tree, options.fullyQualifiedName);
+  const projectConfiguration = readProjectConfiguration(
+    tree,
+    options.fullyQualifiedName
+  );
   if (!projectConfiguration.targets.lint) {
     projectConfiguration.targets.lint = {
-      executor: "@nx/eslint:lint",
+      executor: '@nx/eslint:lint',
       options: {
         fix: true,
       },
-    }
+    };
 
-    updateProjectConfiguration(tree, options.fullyQualifiedName, projectConfiguration);
+    updateProjectConfiguration(
+      tree,
+      options.fullyQualifiedName,
+      projectConfiguration
+    );
   }
 
   const nxJson = readNxJson(tree);
@@ -30,5 +49,5 @@ export const configureEslint = (tree: Tree, options: ConfigureProjectOptions) =>
         ],
       },
     },
-  })
-}
+  });
+};

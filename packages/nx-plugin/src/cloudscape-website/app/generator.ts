@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {
   formatFiles,
   addDependenciesToPackageJson,
@@ -33,7 +37,10 @@ import { getRelativePathToRoot } from '../../utils/paths';
 export async function appGenerator(tree: Tree, schema: AppGeneratorSchema) {
   const npmScopePrefix = getNpmScopePrefix(tree);
   const fullyQualifiedName = `${npmScopePrefix}${schema.name}`;
-  const websiteContentPath = joinPathFragments(schema.directory ?? '.', schema.name);
+  const websiteContentPath = joinPathFragments(
+    schema.directory ?? '.',
+    schema.name
+  );
 
   // Nx 20 is still working on revamping the generator for the TS preset, but our generator applies
   process.env.NX_IGNORE_UNSUPPORTED_TS_SETUP = 'true';
@@ -58,7 +65,13 @@ export async function appGenerator(tree: Tree, schema: AppGeneratorSchema) {
   await sharedConstructsGenerator(tree);
 
   const websiteNameKebabCase = kebabCase(schema.name);
-  const constructsPath = joinPathFragments(PACKAGES_DIR, SHARED_CONSTRUCTS_DIR, 'src', websiteNameKebabCase, 'index.ts');
+  const constructsPath = joinPathFragments(
+    PACKAGES_DIR,
+    SHARED_CONSTRUCTS_DIR,
+    'src',
+    websiteNameKebabCase,
+    'index.ts'
+  );
 
   if (!tree.exists(constructsPath)) {
     const npmScopePrefix = getNpmScopePrefix(tree);
@@ -221,7 +234,11 @@ export async function appGenerator(tree: Tree, schema: AppGeneratorSchema) {
                         return factory.createPropertyAssignment(
                           'outDir',
                           factory.createStringLiteral(
-                            joinPathFragments(getRelativePathToRoot(tree, fullyQualifiedName), 'dist', websiteContentPath)
+                            joinPathFragments(
+                              getRelativePathToRoot(tree, fullyQualifiedName),
+                              'dist',
+                              websiteContentPath
+                            )
                           )
                         );
                       }
@@ -247,22 +264,30 @@ export async function appGenerator(tree: Tree, schema: AppGeneratorSchema) {
     }
   }
 
-  updateJson(tree, joinPathFragments(websiteContentPath, 'tsconfig.json'), (tsconfig) => ({
-    ...tsconfig,
-    compilerOptions: {
-      ...tsconfig.compilerOptions,
-      moduleResolution: 'Bundler',
-      module: 'Preserve',
-    },
-  }));
+  updateJson(
+    tree,
+    joinPathFragments(websiteContentPath, 'tsconfig.json'),
+    (tsconfig) => ({
+      ...tsconfig,
+      compilerOptions: {
+        ...tsconfig.compilerOptions,
+        moduleResolution: 'Bundler',
+        module: 'Preserve',
+      },
+    })
+  );
 
-  updateJson(tree, joinPathFragments(websiteContentPath, 'tsconfig.app.json'), (tsconfig) => ({
-    ...tsconfig,
-    compilerOptions: {
-      ...tsconfig.compilerOptions,
-      lib: ["DOM"]
-    },
-  }));
+  updateJson(
+    tree,
+    joinPathFragments(websiteContentPath, 'tsconfig.app.json'),
+    (tsconfig) => ({
+      ...tsconfig,
+      compilerOptions: {
+        ...tsconfig.compilerOptions,
+        lib: ['DOM'],
+      },
+    })
+  );
 
   addDependenciesToPackageJson(
     tree,

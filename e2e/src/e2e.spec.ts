@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { runCLI, tmpProjPath } from './utils';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { ensureDirSync } from 'fs-extra';
@@ -7,8 +11,10 @@ import { inject } from 'vitest';
 describe('e2e tests', () => {
   beforeEach(() => {
     console.info('Cleaning target directory');
-    existsSync(tmpProjPath()) &&
+    if (existsSync(tmpProjPath())) {
       rmSync(tmpProjPath(), { force: true, recursive: true });
+    }
+
     ensureDirSync(tmpProjPath());
   });
 

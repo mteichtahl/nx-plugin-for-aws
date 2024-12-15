@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import { Tree } from '@nx/devkit';
 import { cjsToEsmGenerator } from './generator';
@@ -61,7 +65,7 @@ describe('ts cjs-to-esm generator', () => {
     await cjsToEsmGenerator(tree, options);
 
     const content = tree.read('test/src/example.ts', 'utf8');
-    expect(content).toContain("export default {");
+    expect(content).toContain('export default {');
     expect(content).not.toContain('module.exports');
   });
 
@@ -79,7 +83,7 @@ describe('ts cjs-to-esm generator', () => {
 
     const content = tree.read('test/src/example.ts', 'utf8');
     expect(content).toContain("import _import0 from 'example'");
-    expect(content).toContain("foo: _import0");
+    expect(content).toContain('foo: _import0');
     expect(content).not.toContain('require');
   });
 
@@ -99,8 +103,8 @@ describe('ts cjs-to-esm generator', () => {
     const content = tree.read('test/src/example.ts', 'utf8');
     expect(content).toContain("import _import0 from 'example'");
     expect(content).toContain("import _import1 from 'bar'");
-    expect(content).toContain("foo: _import0");
-    expect(content).toContain("bar: _import1");
+    expect(content).toContain('foo: _import0');
+    expect(content).toContain('bar: _import1');
     expect(content).not.toContain('require');
   });
 
@@ -122,30 +126,21 @@ describe('ts cjs-to-esm generator', () => {
     expect(content).toContain("import fs from 'fs'");
     expect(content).toContain("import { join } from 'path'");
     expect(content).toContain("import _import0 from 'util'");
-    expect(content).toContain("util: _import0");
+    expect(content).toContain('util: _import0');
     expect(content).not.toContain('require');
     expect(content).not.toContain('module.exports');
   });
 
   it('should only convert files matching the include pattern', async () => {
     // Create multiple files with different extensions
-    tree.write(
-      'test/src/example.ts',
-      `const fs = require('fs');`
-    );
-    tree.write(
-      'test/src/example.js',
-      `const path = require('path');`
-    );
-    tree.write(
-      'test/src/example.mjs',
-      `const util = require('util');`
-    );
+    tree.write('test/src/example.ts', `const fs = require('fs');`);
+    tree.write('test/src/example.js', `const path = require('path');`);
+    tree.write('test/src/example.mjs', `const util = require('util');`);
 
     // Run generator with specific include pattern
     await cjsToEsmGenerator(tree, {
       ...options,
-      include: '**/*.ts'
+      include: '**/*.ts',
     });
 
     // Check that only .ts file was converted
@@ -162,19 +157,13 @@ describe('ts cjs-to-esm generator', () => {
 
   it('should exclude files matching the exclude pattern', async () => {
     // Create multiple files
-    tree.write(
-      'test/src/example.ts',
-      `const fs = require('fs');`
-    );
-    tree.write(
-      'test/src/excluded.ts',
-      `const path = require('path');`
-    );
+    tree.write('test/src/example.ts', `const fs = require('fs');`);
+    tree.write('test/src/excluded.ts', `const path = require('path');`);
 
     // Run generator with exclude pattern
     await cjsToEsmGenerator(tree, {
       ...options,
-      exclude: '**/excluded.ts'
+      exclude: '**/excluded.ts',
     });
 
     // Check that only non-excluded file was converted
@@ -188,24 +177,15 @@ describe('ts cjs-to-esm generator', () => {
 
   it('should respect both include and exclude patterns', async () => {
     // Create multiple files
-    tree.write(
-      'test/src/example.ts',
-      `const fs = require('fs');`
-    );
-    tree.write(
-      'test/src/example.js',
-      `const path = require('path');`
-    );
-    tree.write(
-      'test/src/excluded.ts',
-      `const util = require('util');`
-    );
+    tree.write('test/src/example.ts', `const fs = require('fs');`);
+    tree.write('test/src/example.js', `const path = require('path');`);
+    tree.write('test/src/excluded.ts', `const util = require('util');`);
 
     // Run generator with both include and exclude patterns
     await cjsToEsmGenerator(tree, {
       ...options,
       include: '**/*.ts',
-      exclude: '**/excluded.ts'
+      exclude: '**/excluded.ts',
     });
 
     // Check that only matching files were converted

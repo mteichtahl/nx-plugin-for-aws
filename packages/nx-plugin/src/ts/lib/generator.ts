@@ -1,8 +1,18 @@
-import { GeneratorCallback, Tree, generateFiles, installPackagesTask, joinPathFragments } from "@nx/devkit";
-import { TsLibGeneratorSchema } from "./schema";
-import { libraryGenerator } from "@nx/js";
-import { getNpmScopePrefix } from "../../utils/npm-scope";
-import { configureTsProject } from "./ts-project-utils";
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import {
+  GeneratorCallback,
+  Tree,
+  generateFiles,
+  installPackagesTask,
+  joinPathFragments,
+} from '@nx/devkit';
+import { TsLibGeneratorSchema } from './schema';
+import { libraryGenerator } from '@nx/js';
+import { getNpmScopePrefix } from '../../utils/npm-scope';
+import { configureTsProject } from './ts-project-utils';
 
 export interface TsLibDetails {
   /**
@@ -18,10 +28,16 @@ export interface TsLibDetails {
 /**
  * Returns details about the TS library to be created
  */
-export const getTsLibDetails = (tree: Tree, schema: TsLibGeneratorSchema): TsLibDetails => {
+export const getTsLibDetails = (
+  tree: Tree,
+  schema: TsLibGeneratorSchema
+): TsLibDetails => {
   const scope = schema.scope ? `${schema.scope}/` : getNpmScopePrefix(tree);
   const fullyQualifiedName = `${scope}${schema.name}`;
-  const dir = joinPathFragments(schema.directory ?? '.', schema.subDirectory ?? schema.name);
+  const dir = joinPathFragments(
+    schema.directory ?? '.',
+    schema.subDirectory ?? schema.name
+  );
 
   return { dir, fullyQualifiedName };
 };
@@ -29,7 +45,10 @@ export const getTsLibDetails = (tree: Tree, schema: TsLibGeneratorSchema): TsLib
 /**
  * Generates a typescript library
  */
-export const tsLibGenerator = async (tree: Tree, schema: TsLibGeneratorSchema): Promise<GeneratorCallback> => {
+export const tsLibGenerator = async (
+  tree: Tree,
+  schema: TsLibGeneratorSchema
+): Promise<GeneratorCallback> => {
   const { fullyQualifiedName, dir } = getTsLibDetails(tree, schema);
 
   await libraryGenerator(tree, {
@@ -38,15 +57,15 @@ export const tsLibGenerator = async (tree: Tree, schema: TsLibGeneratorSchema): 
     directory: dir,
     projectNameAndRootFormat: 'as-provided',
     skipPackageJson: true,
-    bundler: "tsc", // TODO: consider supporting others
+    bundler: 'tsc', // TODO: consider supporting others
   });
 
   // Replace with simpler sample source code
   tree.delete(joinPathFragments(dir, 'src'));
   generateFiles(
-    tree, 
-    joinPathFragments(__dirname, 'files', 'src'), 
-    joinPathFragments(dir, 'src'), 
+    tree,
+    joinPathFragments(__dirname, 'files', 'src'),
+    joinPathFragments(dir, 'src'),
     {}
   );
 

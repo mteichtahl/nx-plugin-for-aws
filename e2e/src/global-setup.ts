@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { startLocalRegistry } from '@nx/js/plugins/jest/local-registry';
 import { readJsonFile } from '@nx/devkit';
 import { join } from 'path';

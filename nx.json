@@ -15,6 +15,7 @@
       "!{projectRoot}/**/*.cy.[jt]s?(x)",
       "!{projectRoot}/cypress.config.[jt]s"
     ],
+    "projectDependencies": ["{projectRoot}/package.json", "sharedGlobals"],
     "sharedGlobals": []
   },
   "targetDefaults": {
@@ -39,6 +40,11 @@
     "build": {
       "cache": true,
       "dependsOn": ["^build"]
+    },
+    "generate-3p-license": {
+      "cache": true,
+      "inputs": ["projectDependencies"],
+      "outputs": ["{projectRoot}/LICENSE-THIRD-PARTY"]
     },
     "@nx/vite:build": {
       "cache": true,

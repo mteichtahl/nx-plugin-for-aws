@@ -9,13 +9,22 @@
       "options": {
         "command": "docusaurus build --config docusaurus.config.ts --out-dir ../dist/docs",
         "cwd": "docs"
-      }
+      },
+      "dependsOn": ["lint"]
     },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
         "command": "docusaurus start --port 3000 --config docusaurus.config.ts",
         "cwd": "docs"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "configurations": {
+        "dev": {
+          "fix": true
+        }
       }
     }
   },

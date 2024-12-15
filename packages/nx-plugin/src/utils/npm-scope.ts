@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { readJson, Tree } from '@nx/devkit';
 
 export function getNpmScope(tree: Tree): string | undefined {
@@ -17,5 +21,7 @@ export function getNpmScopePrefix(tree: Tree): string | undefined {
  * Returns a safe import alias for local packages to avoid the potential for sniping attacks
  */
 export function toScopeAlias(npmScopeOrPackageName: string): string {
-  return npmScopeOrPackageName.startsWith('@') ? `:${npmScopeOrPackageName.slice(1)}` : npmScopeOrPackageName;
+  return npmScopeOrPackageName.startsWith('@')
+    ? `:${npmScopeOrPackageName.slice(1)}`
+    : npmScopeOrPackageName;
 }

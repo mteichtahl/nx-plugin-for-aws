@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {
   addDependenciesToPackageJson,
   generateFiles,
@@ -8,16 +12,20 @@ import { getNpmScopePrefix, toScopeAlias } from './npm-scope';
 import tsLibGenerator from '../ts/lib/generator';
 import { withVersions } from './versions';
 
-export const PACKAGES_DIR = "packages";
-export const TYPE_DEFINITIONS_NAME = "common-types";
-export const SHARED_CONSTRUCTS_NAME = "common-constructs";
-export const TYPE_DEFINITIONS_DIR = "common/types";
-export const SHARED_CONSTRUCTS_DIR = "common/constructs";
+export const PACKAGES_DIR = 'packages';
+export const TYPE_DEFINITIONS_NAME = 'common-types';
+export const SHARED_CONSTRUCTS_NAME = 'common-constructs';
+export const TYPE_DEFINITIONS_DIR = 'common/types';
+export const SHARED_CONSTRUCTS_DIR = 'common/constructs';
 
 export async function sharedConstructsGenerator(tree: Tree) {
   const npmScopePrefix = getNpmScopePrefix(tree);
 
-  if (!tree.exists(joinPathFragments(PACKAGES_DIR, TYPE_DEFINITIONS_DIR, 'project.json'))) {
+  if (
+    !tree.exists(
+      joinPathFragments(PACKAGES_DIR, TYPE_DEFINITIONS_DIR, 'project.json')
+    )
+  ) {
     await tsLibGenerator(tree, {
       name: TYPE_DEFINITIONS_NAME,
       directory: PACKAGES_DIR,
@@ -36,7 +44,9 @@ export async function sharedConstructsGenerator(tree: Tree) {
   }
 
   if (
-    !tree.exists(joinPathFragments(PACKAGES_DIR, SHARED_CONSTRUCTS_DIR, 'project.json'))
+    !tree.exists(
+      joinPathFragments(PACKAGES_DIR, SHARED_CONSTRUCTS_DIR, 'project.json')
+    )
   ) {
     await tsLibGenerator(tree, {
       name: SHARED_CONSTRUCTS_NAME,
@@ -59,10 +69,7 @@ export async function sharedConstructsGenerator(tree: Tree) {
 
     addDependenciesToPackageJson(
       tree,
-      withVersions([
-        "constructs",
-        "aws-cdk-lib",
-      ]),
+      withVersions(['constructs', 'aws-cdk-lib']),
       {}
     );
   }
