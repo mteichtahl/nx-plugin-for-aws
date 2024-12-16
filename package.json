@@ -2,7 +2,7 @@
   "name": "@aws/nx-plugin-source",
   "version": "0.0.0",
   "private": true,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "prepare": "husky || true"
   },

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "commonjs",
+  "license": "Apache-2.0",
   "main": "./src/index.js",
   "typings": "./src/index.d.ts",
   "dependencies": {
