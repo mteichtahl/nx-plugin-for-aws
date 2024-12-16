@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { describe, expect, it } from 'vitest';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import { getNpmScope, getNpmScopePrefix, toScopeAlias } from './npm-scope';
@@ -24,7 +28,10 @@ describe('npm-scope utils', () => {
 
     it('should return scope name when package has scope', () => {
       const tree = createTreeWithEmptyWorkspace();
-      tree.write('package.json', JSON.stringify({ name: '@my-org/my-package' }));
+      tree.write(
+        'package.json',
+        JSON.stringify({ name: '@my-org/my-package' })
+      );
       expect(getNpmScope(tree)).toBe('my-org');
     });
   });
@@ -38,7 +45,10 @@ describe('npm-scope utils', () => {
 
     it('should return scope with @ prefix when scope exists', () => {
       const tree = createTreeWithEmptyWorkspace();
-      tree.write('package.json', JSON.stringify({ name: '@my-org/my-package' }));
+      tree.write(
+        'package.json',
+        JSON.stringify({ name: '@my-org/my-package' })
+      );
       expect(getNpmScopePrefix(tree)).toBe('@my-org/');
     });
   });

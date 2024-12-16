@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { Tree, getProjects } from '@nx/devkit';
 import { CjsToEsmGeneratorSchema } from './schema';
 import { tsquery } from '@phenomnomnominal/tsquery';

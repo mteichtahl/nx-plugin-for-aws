@@ -1,4 +1,8 @@
-import { LibraryGeneratorSchema } from "@nx/js/src/utils/schema";
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { LibraryGeneratorSchema } from '@nx/js/src/utils/schema';
 
 export interface TsLibGeneratorSchema {
   name: LibraryGeneratorSchema['name'];
@@ -10,4 +14,4 @@ export interface TsLibGeneratorSchema {
   scope?: string;
   subDirectory?: string;
   skipInstall?: boolean;
-};
+}

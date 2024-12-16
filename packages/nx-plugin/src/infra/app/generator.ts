@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {
   formatFiles,
   joinPathFragments,
@@ -13,7 +17,10 @@ import { InfraGeneratorSchema } from './schema';
 import tsLibGenerator, { getTsLibDetails } from '../../ts/lib/generator';
 import { withVersions } from '../../utils/versions';
 
-export async function infraGenerator(tree: Tree, schema: InfraGeneratorSchema): Promise<GeneratorCallback> {
+export async function infraGenerator(
+  tree: Tree,
+  schema: InfraGeneratorSchema
+): Promise<GeneratorCallback> {
   const lib = getTsLibDetails(tree, schema);
   const tsLibGeneratorCallback = await tsLibGenerator(tree, schema);
 
@@ -68,16 +75,14 @@ export async function infraGenerator(tree: Tree, schema: InfraGeneratorSchema): 
   addDependenciesToPackageJson(
     tree,
     withVersions([
-      "@aws/pdk",
-      "aws-cdk-lib",
-      "aws-cdk",
-      "esbuild",
-      "constructs",
-      "source-map-support",
+      '@aws/pdk',
+      'aws-cdk-lib',
+      'aws-cdk',
+      'esbuild',
+      'constructs',
+      'source-map-support',
     ]),
-    withVersions([
-      "tsx",
-    ]),
+    withVersions(['tsx'])
   );
 
   await formatFiles(tree);

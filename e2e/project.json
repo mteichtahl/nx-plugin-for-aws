@@ -5,10 +5,15 @@
   "projectType": "library",
   "tags": [],
   "targets": {
+    "build": {
+      "dependsOn": ["lint"]
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "options": {
-        "fix": true
+      "configurations": {
+        "dev": {
+          "fix": true
+        }
       }
     }
   },

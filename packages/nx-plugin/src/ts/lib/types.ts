@@ -1,4 +1,7 @@
-
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 export interface ConfigureProjectOptions {
   /**
    * Full package name including scope (eg @foo/bar)

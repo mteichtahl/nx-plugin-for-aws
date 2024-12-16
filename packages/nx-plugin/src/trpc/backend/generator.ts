@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {
   addDependenciesToPackageJson,
   formatFiles,
@@ -43,8 +47,14 @@ export async function trpcBackendGenerator(
 
   const apiNameKebabCase = kebabCase(options.apiName);
   const apiNameClassName = toClassName(options.apiName);
-  const projectRoot = joinPathFragments(options.directory ?? '.', apiNameKebabCase);
-  const relativePathToProjectRoot = `${joinPathFragments(getRelativePathToRoot(tree, `${getNpmScopePrefix(tree)}common-constructs`), projectRoot)}`;
+  const projectRoot = joinPathFragments(
+    options.directory ?? '.',
+    apiNameKebabCase
+  );
+  const relativePathToProjectRoot = `${joinPathFragments(
+    getRelativePathToRoot(tree, `${getNpmScopePrefix(tree)}common-constructs`),
+    projectRoot
+  )}`;
   const schemaRoot = joinPathFragments(projectRoot, 'schema');
   const backendRoot = joinPathFragments(projectRoot, 'backend');
 
@@ -80,8 +90,14 @@ export async function trpcBackendGenerator(
     unitTestRunner: options.unitTestRunner,
   });
 
-  const constructsPath = joinPathFragments(PACKAGES_DIR, SHARED_CONSTRUCTS_DIR, 'src', apiNameKebabCase, 'index.ts');
-  
+  const constructsPath = joinPathFragments(
+    PACKAGES_DIR,
+    SHARED_CONSTRUCTS_DIR,
+    'src',
+    apiNameKebabCase,
+    'index.ts'
+  );
+
   if (!tree.exists(constructsPath)) {
     generateFiles(
       tree,

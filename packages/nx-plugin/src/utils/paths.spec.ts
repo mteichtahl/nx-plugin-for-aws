@@ -1,6 +1,13 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { describe, expect, it, vi } from 'vitest';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
-import { getRelativePathToRoot, getRelativePathToRootByDirectory } from './paths';
+import {
+  getRelativePathToRoot,
+  getRelativePathToRootByDirectory,
+} from './paths';
 import * as devkit from '@nx/devkit';
 
 vi.mock('@nx/devkit', async () => {
@@ -46,15 +53,21 @@ describe('paths utils', () => {
     });
 
     it('should return correct path for nested directory', () => {
-      expect(getRelativePathToRootByDirectory('apps/nested/project')).toBe('../../../');
+      expect(getRelativePathToRootByDirectory('apps/nested/project')).toBe(
+        '../../../'
+      );
     });
 
     it('should handle directories with trailing slash', () => {
-      expect(getRelativePathToRootByDirectory('apps/nested/project/')).toBe('../../../');
+      expect(getRelativePathToRootByDirectory('apps/nested/project/')).toBe(
+        '../../../'
+      );
     });
 
     it('should handle directories with leading slash', () => {
-      expect(getRelativePathToRootByDirectory('/apps/nested/project')).toBe('../../../');
+      expect(getRelativePathToRootByDirectory('/apps/nested/project')).toBe(
+        '../../../'
+      );
     });
   });
 });

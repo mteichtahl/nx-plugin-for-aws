@@ -1,3 +1,7 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { ProjectNameAndRootFormat } from '@nx/devkit/src/generators/project-name-and-root-utils';
 import { SupportedStyles } from '@nx/react';
 import { Linter } from '@nx/eslint';

@@ -14,6 +14,8 @@
         "tsConfig": "packages/nx-plugin/tsconfig.lib.json",
         "assets": [
           "packages/nx-plugin/*.md",
+          "packages/nx-plugin/LICENSE*",
+          "packages/nx-plugin/NOTICE",
           {
             "input": "./packages/nx-plugin/src",
             "glob": "**/!(*.ts)",
@@ -39,12 +41,21 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint",
+      "configurations": {
+        "dev": {
+          "fix": true
+        }
+      }
+    },
+    "generate-3p-license": {
+      "executor": "nx:run-commands",
       "options": {
-        "fix": true
+        "command": "pnpm-licenses generate-disclaimer --prod -o LICENSE-THIRD-PARTY",
+        "cwd": "{projectRoot}"
       }
     },
     "build": {
-      "dependsOn": ["compile", "lint", "test"]
+      "dependsOn": ["compile", "lint", "test", "generate-3p-license"]
     }
   }
 }
