@@ -14,6 +14,7 @@ export const VERSIONS = {
   '@cloudscape-design/components': '^3.0.823',
   '@tanstack/react-query': '^5.59.20',
   '@trpc/react-query': '11.0.0-rc.630',
+  '@trpc/client': '11.0.0-rc.630',
   '@trpc/server': '11.0.0-rc.630',
   '@types/aws-lambda': '^8.10.145',
   'aws-cdk': '^2.166.0',

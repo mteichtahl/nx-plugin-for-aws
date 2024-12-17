@@ -121,7 +121,11 @@ export async function reactGenerator(
 
   addDependenciesToPackageJson(
     tree,
-    withVersions(['@trpc/react-query', '@tanstack/react-query']),
+    withVersions([
+      '@trpc/client',
+      '@trpc/react-query',
+      '@tanstack/react-query',
+    ]),
     {}
   );
   await formatFiles(tree);

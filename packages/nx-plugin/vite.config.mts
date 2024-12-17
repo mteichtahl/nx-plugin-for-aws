@@ -20,7 +20,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-
     reporters: ['default'],
     coverage: {
       reportsDirectory: '../../coverage/packages/nx-plugin',
@@ -40,6 +39,6 @@ export default defineConfig({
     testTimeout: 60000,
     hookTimeout: 60000,
     retry: 3,
-    dangerouslyIgnoreUnhandledErrors: true
+    dangerouslyIgnoreUnhandledErrors: true,
   },
 });

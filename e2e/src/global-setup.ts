@@ -6,9 +6,16 @@ import { startLocalRegistry } from '@nx/js/plugins/jest/local-registry';
 import { readJsonFile } from '@nx/devkit';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { existsSync, rmSync } from 'fs';
 
 export default async function ({ provide }) {
   try {
+    const registryPath = join(__dirname, '../../tmp');
+    if (existsSync(registryPath)) {
+      console.info('Cleaning up old registry store...');
+      rmSync(registryPath, { force: true, recursive: true });
+    }
+
     console.info('Starting local registry...');
 
     global.teardown = await startLocalRegistry({
@@ -28,7 +35,7 @@ export default async function ({ provide }) {
     );
 
     try {
-      execSync(`npm unpublish --force || npm publish --force`, {
+      execSync(`npm publish --force`, {
         env: process.env,
         cwd: join(__dirname, '../../dist/packages/nx-plugin'),
       });

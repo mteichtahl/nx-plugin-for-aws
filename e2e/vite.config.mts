@@ -16,9 +16,14 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['basic'],
     disableConsoleIntercept: true,
+    fileParallelism: false,
     globalSetup: 'src/global-setup.ts',
     coverage: { reportsDirectory: '../coverage/e2e', provider: 'v8' },
-    passWithNoTests: true,
     pool: 'threads',
+    poolOptions: {
+      threads: {
+        isolate: false,
+      },
+    },
   },
 });
