@@ -6,8 +6,7 @@
     "ts#lib": {
       "factory": "./src/ts/lib/generator",
       "schema": "./src/ts/lib/schema.json",
-      "description": "Generates a TypeScript library",
-      "hidden": true
+      "description": "Generates a TypeScript library"
     },
     "ts#cjs-to-esm": {
       "factory": "./src/ts/cjs-to-esm/generator",
@@ -45,11 +44,6 @@
       "factory": "./src/trpc/react/generator",
       "schema": "./src/trpc/react/schema.json",
       "description": "provides React integration to a React website"
-    },
-    "gitlab": {
-      "factory": "./src/gitlab/generator",
-      "schema": "./src/gitlab/schema.json",
-      "description": "Gitlab CI/CD pipeline"
     }
   }
 }

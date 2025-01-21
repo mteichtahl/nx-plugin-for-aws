@@ -4,7 +4,16 @@
  */
 export interface InfraGeneratorSchema {
   name: string;
+  ruleSet:
+    | 'aws_prototyping'
+    | 'cfn_nag'
+    | 'hipaa'
+    | 'nist_csf'
+    | 'pci_dss_3_2_1'
+    | 'well_architected_reliability'
+    | 'well_architected_security';
   directory?: string;
-  unitTestRunner?: 'jest' | 'vitest' | 'none';
+  //   unitTestRunner?: 'jest' | 'vitest' | 'none';
+  //   linter?: Linter;
   skipInstall?: boolean;
 }

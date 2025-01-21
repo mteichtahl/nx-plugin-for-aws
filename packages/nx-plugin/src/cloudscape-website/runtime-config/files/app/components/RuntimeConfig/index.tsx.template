@@ -1,23 +1,18 @@
-/*! Copyright [Amazon.com](http://amazon.com/), Inc. or its affiliates. All Rights Reserved.
-SPDX-License-Identifier: Apache-2.0 */
-import ErrorMessage from '@aws-northstar/ui/components/CognitoAuth/components/ErrorMessage';
-import { Spinner } from '@cloudscape-design/components';
-import React, { createContext, useEffect, useState } from 'react';
+import { Alert, Spinner } from '@cloudscape-design/components';
+import React, { createContext, PropsWithChildren, useEffect, useState } from 'react';
 import type { IRuntimeConfig } from '<%= scopeAlias %>common-types';
 
 /**
  * Context for storing the runtimeConfig.
  */
-export const RuntimeConfigContext = createContext<IRuntimeConfig | undefined>(
-  undefined
-);
+export const RuntimeConfigContext = createContext<IRuntimeConfig | undefined>(undefined);
 
 /**
  * Sets up the runtimeConfig.
  *
  * This assumes a runtime-config.json file is present at '/'.
  */
-const RuntimeConfigProvider: React.FC<any> = ({ children }) => {
+const RuntimeConfigProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [runtimeConfig, setRuntimeConfig] = useState<
     IRuntimeConfig | undefined
   >();
@@ -37,7 +32,9 @@ const RuntimeConfigProvider: React.FC<any> = ({ children }) => {
   }, [setRuntimeConfig]);
 
   return error ? (
-    <ErrorMessage>{error}</ErrorMessage>
+    <Alert type="error" header="Validation error">
+      {error}
+    </Alert>
   ) : runtimeConfig ? (
     <RuntimeConfigContext.Provider value={runtimeConfig}>
       {children}

@@ -16,11 +16,34 @@ export type IEcho = z.TypeOf<typeof EchoSchema>;
 "
 `;
 
-exports[`trpc backend generator > should set up shared constructs > shared-constructs.ts 1`] = `
+exports[`trpc backend generator > should set up shared constructs > index.ts 1`] = `"export * from "./test-api.js";"`;
+
+exports[`trpc backend generator > should set up shared constructs > test-api.ts 1`] = `
+"import { Construct } from 'constructs';
+import * as url from 'url';
+import { TrpcApi } from '../../core/trpc-api.js';
+import { HttpIamAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+
+export class TestApi extends TrpcApi {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+        defaultAuthorizer: new HttpIamAuthorizer(),
+        handlerFilePath: url.fileURLToPath(
+            new URL(
+              '../../../../../../apps/test-api/backend/src/lambdas/router.ts',
+              import.meta.url
+            )
+          )
+    });
+  }
+}
+"
+`;
+
+exports[`trpc backend generator > should set up shared constructs > trpc-api.ts 1`] = `
 "import { Construct } from 'constructs';
 import { Runtime, RuntimeFamily } from 'aws-cdk-lib/aws-lambda';
 import { CfnOutput, Duration } from 'aws-cdk-lib';
-import * as url from 'url';
 import {
   CorsHttpMethod,
   HttpApi,
@@ -30,35 +53,31 @@ import {
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Effect, IRole, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { RuntimeConfig } from '../runtime-config/index.js';
+import { RuntimeConfig } from './runtime-config.js';
 
-export interface TestApiProps {
+export interface TrpcApiProps {
+  readonly handlerFilePath: string;
   readonly defaultAuthorizer: IHttpRouteAuthorizer;
   readonly allowedOrigins?: string[];
 }
 
-export class TestApi extends Construct {
+export class TrpcApi extends Construct {
   public readonly api: HttpApi;
 
-  constructor(scope: Construct, id: string, props: TestApiProps) {
+  constructor(scope: Construct, id: string, props: TrpcApiProps) {
     super(scope, id);
 
-    const routerFunction = new NodejsFunction(this, 'TestApiHandler', {
+    const routerFunction = new NodejsFunction(this, \`\${id}Handler\`, {
       timeout: Duration.seconds(30),
       runtime: new Runtime('nodejs20.x', RuntimeFamily.NODEJS),
       handler: 'handler',
-      entry: url.fileURLToPath(
-        new URL(
-          '../../../../../apps/test-api/backend/src/lambdas/router.ts',
-          import.meta.url
-        )
-      ),
+      entry: props.handlerFilePath,
       environment: {
-        AWS_CONNECTION_REUSE_ENABLED: '1'
+        AWS_CONNECTION_REUSE_ENABLED: '1',
       },
     });
 
-    this.api = new HttpApi(this, 'TestApi', {
+    this.api = new HttpApi(this, id, {
       corsPreflight: {
         allowOrigins: props.allowedOrigins ?? ['*'],
         allowMethods: [CorsHttpMethod.ANY],
@@ -89,10 +108,11 @@ export class TestApi extends Construct {
       ),
     });
 
-    new CfnOutput(this, 'TestApiUrl', { value: this.api.url! });
+    new CfnOutput(this, \`\${id}Url\`, { value: this.api.url! });
 
     RuntimeConfig.ensure(this).config.trpcApis = {
-      'TestApi': this.api.url!
+      ...RuntimeConfig.ensure(this).config.trpcApis!,
+      [id]: this.api.url!,
     };
   }
 
