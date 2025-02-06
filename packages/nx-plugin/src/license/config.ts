@@ -2,13 +2,18 @@
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { Tree, updateJson } from '@nx/devkit';
+import { Tree } from '@nx/devkit';
 import { SPDXLicenseIdentifier } from './schema';
 import {
   readAwsNxPluginConfig,
   updateAwsNxPluginConfig,
 } from '../utils/config/utils';
 import { CommentSyntax, LicenseConfig } from './config-types';
+
+/**
+ * Licenses containing a placeholder for the copyright year
+ */
+const LICENSES_WITH_YEAR: Set<SPDXLicenseIdentifier> = new Set(['MIT']);
 
 /**
  * Defines the comment syntax for popular programming languages
@@ -128,10 +133,12 @@ export const defaultLicenseConfig = (
         (line) => `${line}${' '.repeat(maxLen - line.length)}`,
       );
       return {
+        spdx,
+        copyrightHolder,
         header: {
           content: { lines },
           format: {
-            '**/*.{js,ts}': {
+            '**/*.{js,ts,jsx,tsx,mjs,mts}': {
               blockStart: `/***${'*'.repeat(maxLen)}**`,
               lineStart: ' *  ',
               lineEnd: ' *',
@@ -150,6 +157,13 @@ export const defaultLicenseConfig = (
     }
     default: {
       return {
+        spdx,
+        copyrightHolder,
+        ...(LICENSES_WITH_YEAR.has(spdx)
+          ? {
+              copyrightYear: new Date().getFullYear(),
+            }
+          : {}),
         header: {
           content: {
             lines: [
@@ -158,7 +172,7 @@ export const defaultLicenseConfig = (
             ],
           },
           format: {
-            '**/*.{js,ts}': {
+            '**/*.{js,ts,jsx,tsx,mjs,mts}': {
               blockStart: '/**',
               lineStart: ' * ',
               blockEnd: ' */',
@@ -179,16 +193,7 @@ export const defaultLicenseConfig = (
 /**
  * Write license configuration to the aws nx plugin config
  */
-export const writeLicenseConfig = async (
-  tree: Tree,
-  spdx: SPDXLicenseIdentifier,
-  config: LicenseConfig,
-) => {
-  updateJson(tree, 'package.json', (packageJson) => ({
-    ...packageJson,
-    license: spdx,
-  }));
-
+export const writeLicenseConfig = async (tree: Tree, config: LicenseConfig) => {
   await updateAwsNxPluginConfig(tree, {
     license: config,
   });
