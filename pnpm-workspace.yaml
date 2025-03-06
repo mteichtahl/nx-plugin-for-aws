@@ -1,2 +1,4 @@
 packages:
   - 'packages/*'
+patchedDependencies:
+  starlight-videos@0.1.0: patches/starlight-videos@0.1.0.patch
