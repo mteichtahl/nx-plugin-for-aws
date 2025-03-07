@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/schema",
-  "$id": "TsLib",
+  "$id": "PyFastApi",
   "title": "Create a Python FastAPI project",
   "description": "Create a Python FastAPI project",
   "type": "object",
@@ -17,7 +17,7 @@
     },
     "directory": {
       "type": "string",
-      "description": "Parent directory where the project is placed.",
+      "description": "The directory to store the application in.",
       "default": "packages",
       "x-prompt": "Which directory do you want to create the project in?",
       "x-priority": "important"

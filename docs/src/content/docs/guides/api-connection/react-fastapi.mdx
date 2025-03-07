@@ -1,0 +1,401 @@
+---
+title: React to FastAPI
+description: Connect a React website to a Python FastAPI
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '../../../../components/run-generator.astro';
+import NxCommands from '../../../../components/nx-commands.astro';
+import GeneratorParameters from '../../../../components/generator-parameters.astro';
+import schema from '../../../../../../packages/nx-plugin/src/api-connection/schema.json';
+
+The `api-connection` generator provides a way to quickly integrate your React website with your FastAPI backend. It sets up all necessary configuration for connecting to your FastAPI backends in a type-safe manner, including client generation, AWS IAM authentication support and proper error handling.
+
+## Prerequisites
+
+Before using this generator, ensure your React application has:
+
+1. A `main.tsx` file that renders your application
+2. A working FastAPI backend (generated using the FastAPI generator)
+
+<details>
+<summary>Example of required `main.tsx` structure</summary>
+
+```tsx
+import { StrictMode } from 'react';
+import * as ReactDOM from 'react-dom/client';
+import App from './app/app';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+```
+
+</details>
+
+## Usage
+
+### Run the Generator
+
+<RunGenerator generator="api-connection" />
+
+### Options
+
+<GeneratorParameters schema={schema} />
+
+## Generator Output
+
+The generator will make changes to the following files in your FastAPI project:
+
+<FileTree>
+
+- scripts
+  - generate_open_api.py Add a script which generates an OpenAPI specification for your API
+- project.json A new target is added to the build which invokes the above generate script
+
+</FileTree>
+
+The generator will make changes to the following files in your React application:
+
+<FileTree>
+
+- src
+  - hooks
+    - useSigV4.tsx Add a hook for signing HTTP requests with SigV4 (if you selected IAM authentication)
+    - use\<ApiName>.tsx Add a hook for instantiating an API client which can call your API.
+- project.json A new target is added to the build which generates a type-safe client
+- .gitignore The generated client files are ignored by default
+
+</FileTree>
+
+The generator will also add Runtime Config to your website infrastructure if not present already, which ensures that the API URL for your FastAPI is available in the website and automatically configured by the `use<ApiName>.tsx` hook.
+
+### Code Generation
+
+At build time, a type-safe client is generated from your FastAPI's OpenAPI specification. This will add two new files to your React application:
+
+<FileTree>
+
+- src
+  - generated
+    - \<ApiName>
+      - types.gen.ts Generated types from the pydantic models defined in your FastAPI
+      - client.gen.ts Type-safe client for calling your API
+
+</FileTree>
+
+:::tip
+By default, the generated client is ignored from version control. If you would prefer to check it in, you can remove the entry from your React application's `.gitignore` file, however note that any manual changes to the `.gen.ts` files will be overwritten when your project is built.
+:::
+
+## Using the Generated Code
+
+The generated type-safe client can be used to call your FastAPI from your React application.
+
+:::note
+Whenever you make changes to your FastAPI, you need to rebuild your project in order for those changes to be reflected in the generated client. For example:
+
+<NxCommands commands={['run-many --target build --all']} />
+:::
+
+:::tip
+If you're actively working on both your React application and FastAPI together, you can use [`nx watch`](https://nx.dev/nx-api/nx/documents/watch) to regenerate the client every time you make API changes:
+
+<NxCommands
+  commands={[
+    'watch --projects=<FastAPIProject> -- \\ ',
+    'run <WebsiteProject>:"generate:<ApiName>-client"',
+  ]}
+/>
+:::
+
+### Using the API Hook
+
+The generator provides a `use<ApiName>` hook that gives you access to the type-safe API client:
+
+```tsx {5,13}
+import { useState, useEffect } from 'react';
+import { useMyApi } from './hooks/useMyApi';
+
+function MyComponent() {
+  const api = useMyApi();
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchItem = async () => {
+      try {
+        const data = await api.getItem({ itemId: 'some-id' });
+        setItem(data);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchItem();
+  }, [api]);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return <div>Item: {item.name}</div>;
+}
+```
+
+### Error Handling
+
+The integration includes built-in error handling with typed error responses. An `<operation-name>Error` type is generated which encapsulates the possible error responses defined in the OpenAPI specification. Each error has a `status` and `error` property, and by checking the value of `status` you can narrow to a specific type of error.
+
+```tsx {9,15}
+function MyComponent() {
+  const api = useMyApi();
+  const [error, setError] = useState<CreateItemError | null>(null);
+
+  const handleClick = async () => {
+    try {
+      await api.createItem({ name: 'New Item' });
+    } catch (e) {
+      const err = e as CreateItemError;
+      setError(err);
+    }
+  };
+
+  if (error) {
+    switch (error.status) {
+      case 400:
+        // error.error is typed as CreateItem400Response
+        return (
+          <div>
+            <h2>Invalid input:</h2>
+            <p>{error.error.message}</p>
+            <ul>
+              {error.error.validationErrors.map((err) => (
+                <li key={err.field}>{err.message}</li>
+              ))}
+            </ul>
+          </div>
+        );
+      case 403:
+        // error.error is typed as CreateItem403Response
+        return (
+          <div>
+            <h2>Not authorized:</h2>
+            <p>{error.error.reason}</p>
+          </div>
+        );
+      case 500:
+      case 502:
+        // error.error is typed as CreateItem5XXResponse
+        return (
+          <div>
+            <h2>Server error:</h2>
+            <p>{error.error.message}</p>
+            <p>Trace ID: {error.error.traceId}</p>
+          </div>
+        );
+    }
+  }
+
+  return <button onClick={handleClick}>Create Item</button>;
+}
+```
+
+### Consuming a Stream
+
+If you have [configured your FastAPI to stream responses](/guides/fastapi#streaming), the generated client will include type-safe methods for asynchronously iterating over chunks in your stream using `for await` syntax.
+
+For example:
+
+```tsx {8}
+function MyStreamingComponent() {
+  const api = useMyApi();
+
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+
+  useEffect(() => {
+    const streamChunks = async () => {
+      for await (const chunk of api.myStream()) {
+        setChunks((prev) => [...prev, chunk]);
+      }
+    };
+    streamChunks();
+  }, [api]);
+
+  return (
+    <ul>
+      {chunks.map((chunk) => (
+        <li>
+          {chunk.timestamp.toISOString()}: {chunk.message}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Best Practices
+
+### Handle Loading States
+
+Always handle loading and error states for a better user experience:
+
+```tsx
+function ItemList() {
+  const api = useMyApi();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const data = await api.listItems();
+        setItems(data);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchItems();
+  }, [api]);
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    const err = error as ListItemsError;
+    switch (err.status) {
+      case 403:
+        // err.error is typed as ListItems403Response
+        return <ErrorMessage message={err.error.reason} />;
+      case 500:
+      case 502:
+        // err.error is typed as ListItems5XXResponse
+        return (
+          <ErrorMessage
+            message={err.error.message}
+            details={`Trace ID: ${err.error.traceId}`}
+          />
+        );
+      default:
+        return <ErrorMessage message="An unknown error occurred" />;
+    }
+  }
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Optimistic Updates
+
+Implement optimistic updates for a better user experience:
+
+```tsx
+function ItemList() {
+  const api = useMyApi();
+  const [items, setItems] = useState([]);
+
+  const handleDelete = async (itemId) => {
+    // Optimistically remove the item
+    const previousItems = items;
+    setItems(items.filter((item) => item.id !== itemId));
+
+    try {
+      await api.deleteItem(itemId);
+    } catch (error) {
+      // Restore previous items on error
+      setItems(previousItems);
+      console.error('Failed to delete item:', error);
+    }
+  };
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id}>
+          {item.name}
+          <button onClick={() => handleDelete(item.id)}>Delete</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Type Safety
+
+The integration provides complete end-to-end type safety. Your IDE will provide full autocompletion and type checking for all your API calls:
+
+```tsx
+function ItemForm() {
+  const api = useMyApi();
+  const [error, setError] = useState<CreateItemError | null>(null);
+
+  const handleSubmit = async (data: CreateItemInput) => {
+    try {
+      // ✅ Type error if input doesn't match schema
+      await api.createItem(data);
+    } catch (e) {
+      // ✅ Error type includes all possible error responses
+      const err = e as CreateItemError;
+      switch (err.status) {
+        case 400:
+          // err.error is typed as CreateItem400Response
+          console.error('Validation errors:', err.error.validationErrors);
+          break;
+        case 403:
+          // err.error is typed as CreateItem403Response
+          console.error('Not authorized:', err.error.reason);
+          break;
+        case 500:
+        case 502:
+          // err.error is typed as CreateItem5XXResponse
+          console.error(
+            'Server error:',
+            err.error.message,
+            'Trace:',
+            err.error.traceId,
+          );
+          break;
+      }
+      setError(err);
+    }
+  };
+
+  // Error UI can use type narrowing to handle different error types
+  if (error) {
+    switch (error.status) {
+      case 400:
+        return (
+          <FormError
+            message="Invalid input"
+            errors={error.error.validationErrors}
+          />
+        );
+      case 403:
+        return <AuthError reason={error.error.reason} />;
+      default:
+        return <ServerError message={error.error.message} />;
+    }
+  }
+
+  return <form onSubmit={handleSubmit}>{/* ... */}</form>;
+}
+```
+
+The types are automatically generated from your FastAPI's OpenAPI schema, ensuring that any changes to your API are reflected in your frontend code after a build.

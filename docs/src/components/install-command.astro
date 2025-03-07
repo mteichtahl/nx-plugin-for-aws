@@ -1,0 +1,15 @@
+---
+import { Code, Tabs, TabItem } from '@astrojs/starlight/components';
+const { pkg, dev } = Astro.props;
+---
+<Tabs syncKey="cli-command">
+  <TabItem label="pnpm" icon="pnpm">
+    <Code lang="bash" code={`pnpm add -${dev ? 'D' : ''}w ${pkg}`} />
+  </TabItem>
+  <TabItem label="yarn" icon="seti:yarn">
+    <Code lang="bash" code={`yarn add ${dev ? '-D ' : '' }${pkg}`} />
+  </TabItem>
+  <TabItem label="npm" icon="seti:npm">
+    <Code lang="bash" code={`npm install ${dev ? '-D ' : '' }${pkg}`} />
+  </TabItem>
+</Tabs>

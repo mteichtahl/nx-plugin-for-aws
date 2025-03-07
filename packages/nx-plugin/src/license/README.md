@@ -30,13 +30,13 @@ Then generate your API:
 Generate the API:
 
 ```bash
-nx g @aws/nx-plugin:license my-api --copyrightHolder="My Company, Inc." --license=MIT
+nx g @aws/nx-plugin:license --copyrightHolder="My Company, Inc." --license=MIT
 ```
 
 You can also perform a dry-run to see what files would be generated or updated without actually creating them:
 
 ```bash
-nx g @aws/nx-plugin:license my-api --copyrightHolder="My Company, Inc." --license=MIT --dry-run
+nx g @aws/nx-plugin:license --copyrightHolder="My Company, Inc." --license=MIT --dry-run
 ```
 
 Both methods will configure the license sync generator to ensure that your project contains the correct LICENSE files, and source files specify the correct license header.
