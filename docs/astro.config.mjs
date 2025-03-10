@@ -16,6 +16,8 @@ import react from '@astrojs/react';
 
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://awslabs.github.io',
+  base: '/nx-plugin-for-aws',
   image: {
     service: passthroughImageService(),
   },
@@ -125,11 +127,17 @@ export default defineConfig({
         starlightVideos(),
         starlightBlog({
           authors: {
-            dimecha: {
+            adrian: {
               name: 'Adrian',
               title: 'Principal Software Engineer (AWS)',
               url: 'https://github.com/agdimech',
               picture: 'https://avatars.githubusercontent.com/u/51220968?v=4',
+            },
+            jack: {
+              name: 'Jack',
+              title: 'Senior Prototyping Engineer (AWS)',
+              url: 'https://github.com/cogwirrel',
+              picture: 'https://avatars.githubusercontent.com/u/1848603?v=4',
             },
           },
         }),
