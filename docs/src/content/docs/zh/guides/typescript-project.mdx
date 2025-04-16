@@ -1,0 +1,248 @@
+---
+title: "TypeScript 项目"
+description: "TypeScript 项目的参考文档"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '@components/run-generator.astro';
+import InstallCommand from '@components/install-command.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import NxCommands from '@components/nx-commands.astro';
+import schema from '../../../../../../packages/nx-plugin/src/ts/lib/schema.json';
+
+TypeScript 项目生成器可用于创建配置了最佳实践的现代化 [TypeScript](https://www.typescriptlang.org/) 库或应用，包括 [ECMAScript Modules (ESM)](https://www.typescriptlang.org/docs/handbook/modules/reference.html)、TypeScript [项目引用](https://www.typescriptlang.org/docs/handbook/project-references.html)、用于运行测试的 [Vitest](https://vitest.dev/) 及用于静态分析的 [ESLint](https://eslint.org/)。
+
+## 使用方法
+
+### 生成 TypeScript 项目
+
+有两种方式可生成新的 TypeScript 项目：
+
+<RunGenerator generator="ts#project" />
+
+### 选项
+
+<GeneratorParameters schema={schema} />
+
+## 生成器输出
+
+生成器将在 `<directory>/<name>` 目录下创建如下项目结构：
+
+<FileTree>
+
+  - src TypeScript 源代码
+    - index.ts
+  - project.json 项目配置及构建目标
+  - tsconfig.json 项目基础 TypeScript 配置（继承自工作区根目录的 tsconfig.base.json）
+  - tsconfig.lib.json 库的 TypeScript 配置（运行时或打包后的源码）
+  - tsconfig.spec.json 测试的 TypeScript 配置
+  - vite.config.ts Vitest 配置
+  - eslint.config.mjs ESLint 配置
+
+</FileTree>
+
+:::tip
+注意此项目未创建 `package.json` 文件！原因详见[下方说明](#dependencies)。
+:::
+
+同时，工作区根目录中的以下文件会有所变更：
+
+<FileTree>
+
+  - nx.json Nx 配置更新，为项目配置 @nx/js/typescript 插件
+  - tsconfig.base.json 为项目设置 TypeScript 别名，以便工作区其他项目导入
+  - tsconfig.json 为项目添加 TypeScript 项目引用
+
+</FileTree>
+
+## 编写 TypeScript 源代码
+
+将 TypeScript 代码添加至 `src` 目录。
+
+### ESM 导入语法
+
+由于项目采用 ES 模块，需在导入语句中显式指定文件扩展名：
+
+```ts title="index.ts" ".js"
+import { sayHello } from './hello.js';
+```
+
+:::note
+尽管使用 TypeScript 且 `sayHello` 定义于 `hello.ts`，导入时仍需使用 `.js` 扩展名。详见[此说明](https://www.typescriptlang.org/docs/handbook/modules/reference.html)。
+:::
+
+### 为其他 TypeScript 项目导出
+
+项目入口点为 `src/index.ts`，可在此导出供其他项目使用的内容：
+
+```ts title="src/index.ts"
+export { sayHello } from './hello.js';
+export * from './algorithms/index.js';
+```
+
+### 在其他项目中导入库代码
+
+工作区 `tsconfig.base.json` 中配置了项目的 [TypeScript 别名](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths)，便于其他 TypeScript 项目引用：
+
+```ts title="packages/my-other-project/src/index.ts"
+import { sayHello } from ':my-scope/my-library';
+```
+
+:::note
+项目别名以 `:` 开头而非传统 `@`，避免本地包与 [NPM](https://www.npmjs.com/) 远程包命名冲突。
+:::
+
+首次导入新项目时，IDE 可能出现类似错误：
+
+<details>
+<summary>导入错误示例</summary>
+
+```bash wrap
+File '/path/to/my/workspace/packages/my-library/src/index.ts' is not under 'rootDir' '/path/to/my/workspace/packages/my-consumer'. 'rootDir' is expected to contain all source files.
+  File is ECMAScript module because '/path/to/my/workspace/package.json' has field "type" with value "module" ts(6059)
+File '/path/to/my/workspace/packages/my-library/src/index.ts' is not listed within the file list of project '/path/to/my/workspace/packages/my-consumer/tsconfig.lib.json'. Projects must list all files or use an 'include' pattern.
+  File is ECMAScript module because '/path/to/my/workspace/package.json' has field "type" with value "module" ts(6307)
+```
+
+</details>
+
+此因尚未配置[项目引用](https://www.typescriptlang.org/docs/handbook/project-references.html)。
+
+TypeScript 项目默认通过 Nx TypeSync 生成器配置，无需手动设置。运行以下命令添加必要配置：
+
+<NxCommands commands={['sync']} />
+
+完成后错误将消失，可正常使用库。
+
+:::tip
+构建项目时也可能出现提示：
+
+```bash wrap
+[@nx/js:typescript-sync]: Some TypeScript configuration files are missing project references to the projects they depend on or contain outdated project references.
+
+This will result in an error in CI.
+
+? Would you like to sync the identified changes to get your workspace up to date?
+Yes, sync the changes and run the tasks
+No, run the tasks without syncing the changes
+```
+
+选择 `Yes` 允许 Nx 更新项目引用。
+:::
+
+### 依赖管理
+
+项目未包含 `package.json` 文件，与传统 TypeScript 单体仓库不同。
+
+要添加依赖，请将其加入工作区根目录的 `package.json` 中。可通过包管理器命令行操作：
+
+<InstallCommand pkg="some-npm-package" />
+
+依赖将可供工作区所有 TypeScript 项目使用。
+
+#### 运行时代码
+
+将项目作为运行时代码（如 AWS Lambda 处理程序）时，建议使用 [`esbuild`](https://esbuild.github.io/) 进行打包，以通过[摇树优化](https://esbuild.github.io/api/#tree-shaking)确保仅包含实际使用的依赖。
+
+在 `project.json` 中添加如下构建目标：
+
+```json
+{
+  ...
+  "targets": {
+    ...
+    "bundle": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/my-library/bundle"],
+      "options": {
+        "command": "esbuild packages/my-library/src/index.ts --bundle --outfile=dist/packages/my-library/bundle/index.js --platform=node --format=cjs"
+      }
+    },
+  },
+}
+```
+
+:::note
+示例中选择 `src/index.ts` 作为打包入口点，导出内容及其依赖将被包含。
+:::
+
+#### 发布到 NPM
+
+若需发布到 NPM，必须创建 `package.json`。需声明所有依赖，建议配置 [Nx 依赖检查 ESLint 插件](https://nx.dev/nx-api/eslint-plugin/documents/dependency-checks)确保依赖完整性。
+
+### 构建
+
+项目配置了 `build` 目标（定义于 `project.json`），可通过以下命令运行：
+
+<NxCommands commands={['run <project-name>:build']} />
+
+其中 `<project-name>` 为项目全称。
+
+`build` 目标将编译、检查及测试项目。构建输出位于工作区根目录 `dist` 文件夹中，例如 `dist/packages/<my-library>/tsc`。
+
+## 测试
+
+使用 [Vitest](https://vitest.dev/) 进行测试。
+
+### 编写测试
+
+测试文件应为 `.spec.ts` 或 `.test.ts` 格式，与源码共存于 `src` 目录。例如：
+
+<FileTree>
+  - src
+    - hello.ts 库源码
+    - hello.spec.ts 测试文件
+</FileTree>
+
+Vitest 提供类似 Jest 的语法，支持 `describe`、`it`、`test` 和 `expect` 等工具。
+
+```ts title="hello.spec.ts"
+import { sayHello } from './hello.js';
+
+describe('sayHello', () => {
+
+  it('should greet the caller', () => {
+    expect(sayHello('Darth Vader')).toBe('Hello, Darth Vader!');
+  });
+
+});
+```
+
+更多测试编写技巧及模拟依赖功能，请参阅 [Vitest 文档](https://vitest.dev/guide/#writing-tests)。
+
+### 运行测试
+
+测试随 `build` 目标自动运行，也可单独执行：
+
+<NxCommands commands={['run <project-name>:test']} />
+
+使用 `-t` 标志运行特定测试套件：
+
+<NxCommands commands={["run <project-name>:test -t 'sayHello'"]} />
+
+:::tip
+VSCode 用户建议安装 [真正可用的 Vitest 运行器扩展](https://marketplace.visualstudio.com/items?itemName=rluvaton.vscode-vitest)，支持从 IDE 运行、监视或调试测试。
+:::
+
+## 代码检查
+
+项目使用 [ESLint](https://eslint.org/) 进行代码检查，[Prettier](https://prettier.io/) 进行格式化。建议在工作区根目录的 `eslint.config.mjs` 中配置 ESLint，以确保一致性。Prettier 配置于根目录 `.prettierrc` 文件。
+
+### 运行检查
+
+执行 `lint` 目标进行代码检查：
+
+<NxCommands commands={["run <project-name>:lint"]} />
+
+### 修复问题
+
+多数检查或格式问题可自动修复。使用 `--configuration=fix` 参数运行 ESLint：
+
+<NxCommands commands={["run <project-name>:lint --configuration=fix"]} />
+
+修复整个工作区问题：
+
+<NxCommands commands={["run-many --target lint --all --configuration=fix"]} />

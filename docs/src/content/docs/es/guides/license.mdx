@@ -1,0 +1,293 @@
+---
+title: "Licencia"
+description: "Documentación de referencia para el generador de licencias"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '@components/run-generator.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import schema from '../../../../../../packages/nx-plugin/src/license/schema.json';
+
+Gestiona automáticamente los archivos `LICENSE` y las cabeceras en el código fuente de tu espacio de trabajo.
+
+Este generador registra un [generador de sincronización](https://nx.dev/concepts/sync-generators) que se ejecuta como parte de tus objetivos `lint` para garantizar que los archivos fuente cumplan con el contenido y formato de licencia deseado, así como asegurar que los archivos `LICENSE` de tus proyectos sean correctos y que la información de licencia esté incluida en archivos de proyecto relevantes (`package.json`, `pyproject.toml`).
+
+## Uso
+
+### Ejecutar el generador
+
+<RunGenerator generator="license" />
+
+### Opciones
+
+<GeneratorParameters schema={schema} />
+
+## Salida del generador
+
+El generador creará o actualizará los siguientes archivos:
+
+<FileTree>
+  - nx.json El objetivo lint está configurado para ejecutar el generador de sincronización de licencias
+  - aws-nx-plugin.config.mts Configuración para el generador de sincronización de licencias
+</FileTree>
+
+Se agrega una configuración predeterminada para el contenido y formato de cabeceras de licencia en `aws-nx-plugin.config.mts` para escribir cabeceras apropiadas en varios tipos de archivos. Puedes personalizar esto más adelante; consulta la [sección de configuración](#configuration) a continuación.
+
+## Flujo de trabajo
+
+Cada vez que construyas tus proyectos (y se ejecute un objetivo `lint`), el generador de sincronización de licencias asegurará que las licencias en tu proyecto coincidan con tu configuración (ver [comportamiento de sincronización más abajo](#license-sync-behaviour)). Si detecta desincronización, recibirás un mensaje como:
+
+```bash
+  NX   The workspace is out of sync
+
+[@aws/nx-plugin:license#sync]: Project LICENSE files are out of sync:
+- LICENSE
+- packages/<my-project>LICENSE
+
+Project package.json files are out of sync:
+- package.json
+
+Project pyproject.toml files are out of sync:
+- pyproject.toml
+- packages/<my-python-project>/pyproject.toml
+
+License headers are out of sync in the following source files:
+- packages/<my-project>/src/index.ts
+- packages/<my-python-project>/main.py
+
+This will result in an error in CI.
+
+? Would you like to sync the identified changes to get your workspace up to date?
+Yes, sync the changes and run the tasks
+No, run the tasks without syncing the changes
+```
+
+Selecciona `Yes` para sincronizar los cambios.
+
+:::note
+Asegúrate de revisar los cambios que realiza el generador de sincronización en el control de versiones para evitar fallos en las tareas de integración continua debido a licencias desincronizadas.
+:::
+
+## Comportamiento de sincronización de licencias
+
+El generador de sincronización realiza tres tareas principales:
+
+### 1. Sincronizar cabeceras de licencia en archivos fuente
+
+Al ejecutarse, el generador asegurará que todos los archivos de código fuente en tu espacio de trabajo (según tu configuración) contengan la cabecera de licencia adecuada. La cabecera se escribe como el primer comentario de bloque o serie consecutiva de comentarios de línea en el archivo (excluyendo shebang/hashbang si está presente).
+
+Puedes actualizar la configuración en cualquier momento para cambiar qué archivos incluir/excluir, así como el contenido o formato de las cabeceras para diferentes tipos de archivo. Más detalles en la [sección de configuración](#configuration).
+
+### 2. Sincronizar archivos LICENSE
+
+El generador asegurará que el archivo raíz `LICENSE` corresponda a tu licencia configurada, y que todos los subproyectos contengan el archivo `LICENSE` correcto.
+
+Puedes excluir proyectos en la configuración si es necesario. Más detalles en la [sección de configuración](#configuration).
+
+### 3. Sincronizar información de licencia en archivos de proyecto
+
+El generador asegurará que los campos `license` en archivos `package.json` y `pyproject.toml` coincidan con tu licencia configurada.
+
+Puedes excluir proyectos en la configuración si es necesario. Más detalles en la [sección de configuración](#configuration).
+
+## Configuración
+
+La configuración se define en el archivo `aws-nx-plugin.config.mts` en la raíz de tu espacio de trabajo.
+
+### SPDX y titular de derechos
+
+Puedes actualizar la licencia mediante la propiedad `spdx`:
+
+```typescript title="aws-nx-plugin.config.mts" {3}
+export default {
+  license: {
+    spdx: 'MIT',
+  },
+} satisfies AwsNxPluginConfig;
+```
+
+Al ejecutar el generador, todos los archivos `LICENSE`, `package.json` y `pyproject.toml` se actualizarán según la licencia configurada.
+
+También puedes configurar el titular de derechos y el año de copyright:
+
+```typescript title="aws-nx-plugin.config.mts" {4,5}
+export default {
+  license: {
+    spdx: 'MIT',
+    copyrightHolder: 'Amazon.com, Inc. or its affiliates',
+    copyrightYear: 2025,
+  },
+} satisfies AwsNxPluginConfig;
+```
+
+### Cabeceras de licencia
+
+#### Contenido
+
+El contenido de las cabeceras se puede configurar de dos formas:
+
+1. Contenido directo:
+
+```typescript title="aws-nx-plugin.config.mts" {5-9}
+export default {
+  license: {
+    header: {
+      content: {
+        lines: [
+          'Copyright: My Company, Incorporated.',
+          'Licensed under the MIT License',
+          'All rights reserved',
+        ];
+      }
+      // ... formato de configuración
+    }
+  }
+} satisfies AwsNxPluginConfig;
+```
+
+2. Cargando desde archivo:
+
+```typescript title="aws-nx-plugin.config.mts" {5}
+export default {
+  license: {
+    header: {
+      content: {
+        filePath: 'license-header.txt'; // relativo a la raíz del workspace
+      }
+      // ... formato de configuración
+    }
+  }
+} satisfies AwsNxPluginConfig;
+```
+
+#### Formato
+
+Puedes especificar cómo formatear cabeceras para diferentes tipos de archivo usando patrones glob. Soporta comentarios de línea, bloque o combinaciones:
+
+```typescript title="aws-nx-plugin.config.mts" {7-29}
+export default {
+  license: {
+    header: {
+      content: {
+        lines: ['Copyright notice here'],
+      },
+      format: {
+        // Comentarios de línea
+        '**/*.ts': {
+          lineStart: '// ',
+        },
+        // Comentarios de bloque
+        '**/*.css': {
+          blockStart: '/*',
+          blockEnd: '*/',
+        },
+        // Comentarios de bloque con prefijos
+        '**/*.java': {
+          blockStart: '/*',
+          lineStart: ' * ',
+          blockEnd: ' */',
+        },
+        // Comentarios de línea con cabecera/pie
+        '**/*.py': {
+          blockStart: '# ------------',
+          lineStart: '# ',
+          blockEnd: '# ------------',
+        },
+      },
+    },
+  },
+} satisfies AwsNxPluginConfig;
+```
+
+Opciones de formato soportadas:
+- `blockStart`: Texto antes del contenido de licencia
+- `lineStart`: Prefijo para cada línea
+- `lineEnd`: Sufijo para cada línea
+- `blockEnd`: Texto después del contenido
+
+#### Sintaxis de comentarios personalizada
+
+Para tipos de archivo no soportados, puedes definir sintaxis personalizada:
+
+```typescript title="aws-nx-plugin.config.mts" {12-22}
+export default {
+  license: {
+    header: {
+      content: {
+        lines: ['My license header'],
+      },
+      format: {
+        '**/*.xyz': {
+          lineStart: '## ',
+        },
+      },
+      commentSyntax: {
+        xyz: {
+          line: '##', // Sintaxis de comentario de línea
+        },
+        abc: {
+          block: {
+            start: '<!--',
+            end: '-->',
+          },
+        },
+      },
+    },
+  },
+} satisfies AwsNxPluginConfig;
+```
+
+#### Excluir archivos
+
+Por defecto, en repositorios git se respetan los `.gitignore`. En otros casos, todos los archivos se consideran a menos que se excluyan explícitamente.
+
+Puedes excluir archivos adicionales con patrones glob:
+
+```typescript title="aws-nx-plugin.config.mts" {12-16}
+export default {
+  license: {
+    header: {
+      content: {
+        lines: ['My license header'],
+      },
+      format: {
+        '**/*.ts': {
+          lineStart: '// ',
+        },
+      },
+      exclude: ['**/generated/**', '**/dist/**', 'some-specific-file.ts'],
+    },
+  },
+} satisfies AwsNxPluginConfig;
+```
+
+### Excluir archivos de proyecto de la sincronización
+
+Todos los archivos `LICENSE`, `package.json` y `pyproject.toml` se sincronizan por defecto.
+
+Puedes excluir proyectos o archivos específicos:
+
+```typescript title="aws-nx-plugin.config.mts" {3-10}
+export default {
+  license: {
+    files: {
+      exclude: [
+        // Excluir LICENSE, package.json y pyproject.toml
+        'packages/excluded-project',
+        // Excluir solo LICENSE
+        'apps/internal/LICENSE',
+      ];
+    }
+  }
+} satisfies AwsNxPluginConfig;
+```
+
+## Desactivar la sincronización de licencias
+
+Para desactivar el generador:
+1. Elimina la sección `license` en `aws-nx-plugin.config.mts` (o elimina el archivo)
+2. Elimina el generador `@aws/nx-plugin:license#sync` de `targetDefaults.lint.syncGenerators`
+
+Para reactivarlo, ejecuta nuevamente el generador `license`.

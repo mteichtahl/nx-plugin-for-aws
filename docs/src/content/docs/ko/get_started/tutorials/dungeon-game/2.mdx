@@ -1,0 +1,660 @@
+---
+title: "AI 던전 게임"
+description: "@aws/nx-plugin을 사용하여 AI 기반 던전 모험 게임을 구축하는 방법에 대한 안내"
+---
+
+
+
+import { Aside, Code, FileTree, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import Link from '@components/link.astro';
+import Drawer from '@components/drawer.astro';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import InstallCommand from '@components/install-command.astro';
+import dungeonAdventureArchitecturePng from '@assets/dungeon-game-architecture.png'
+import dungeonAdventureErPng from '@assets/dungeon-adventure-er.png'
+import baselineWebsitePng from '@assets/baseline-website.png'
+import baselineGamePng from '@assets/baseline-game.png'
+import nxGraphPng from '@assets/nx-graph.png'
+import gameSelectPng from '@assets/game-select.png'
+import gameConversationPng from '@assets/game-conversation.png'
+
+## 모듈 2: 게임 API 구현
+
+게임 API 구현부터 시작하겠습니다. 총 4개의 API를 생성해야 합니다:
+
+1. `createGame` - 새 게임 인스턴스를 생성합니다.
+2. `queryGames` - 이전에 저장된 게임 목록을 페이지네이션으로 반환합니다.
+3. `saveAction` - 특정 게임에 대한 액션을 저장합니다.
+4. `queryActions` - 게임과 관련된 모든 액션의 페이지네이션 목록을 반환합니다.
+
+### API 스키마
+
+Zod를 사용하여 API 입출력을 정의하기 위해 `packages/game-api/schema/src` 프로젝트 내에 다음처럼 스키마를 생성합니다:
+
+<Tabs>
+  <TabItem label="types/action.ts">
+```typescript
+import { z } from 'zod';
+
+export const ActionSchema = z.object({
+  playerName: z.string(),
+  timestamp: z.string().datetime(),
+  role: z.enum(['assistant', 'user']),
+  content: z.string(),
+});
+
+export type IAction = z.TypeOf<typeof ActionSchema>;
+```
+  </TabItem>
+  <TabItem label="types/common.ts">
+```typescript
+import { z } from 'zod';
+
+export const QueryInputSchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.number().optional().default(100),
+});
+
+export const createPaginatedQueryOutput = <ItemType extends z.ZodTypeAny>(
+  itemSchema: ItemType,
+) => {
+  return z.object({
+    items: z.array(itemSchema),
+    cursor: z.string().nullable(),
+  });
+};
+
+export type IQueryInput = z.TypeOf<typeof QueryInputSchema>;
+```
+  </TabItem>
+  <TabItem label="types/game.ts">
+```typescript
+import { z } from 'zod';
+
+export const GameSchema = z.object({
+  playerName: z.string(),
+  genre: z.enum(['zombie', 'superhero', 'medieval']),
+  lastUpdated: z.string().datetime(),
+});
+
+export type IGame = z.TypeOf<typeof GameSchema>;
+```
+  </TabItem>
+  <TabItem label="index.ts">
+```diff lang="typescript"
+-export * from './procedures/echo.js';
++export * from './types/action.js';
++export * from './types/common.js';
++export * from './types/game.js';
+```
+  </TabItem>
+</Tabs>
+
+이 프로젝트에서 사용하지 않을 `./procedures/echo.ts` 파일은 삭제할 수 있습니다.
+
+<Aside type="tip">
+위에서 볼 수 있듯이 Zod로 정의한 각 스키마에 `z.TypeOf` 구문을 사용하여 인터페이스를 함께 내보냅니다. 이렇게 하면 중복 작업 없이 Zod 정의를 TypeScript 인터페이스로 변환할 수 있습니다!
+</Aside>
+
+### 엔티티 모델링
+
+애플리케이션의 ER 다이어그램은 다음과 같습니다:
+
+<Image class="centered-image white-bg" src={dungeonAdventureErPng} alt="dungeon-adventure-er.png" width="400" height="300" />
+
+DynamoDB에 데이터베이스를 구현할 것이며, ElectroDB DynamoDB 클라이언트 라이브러리를 사용하여 작업을 단순화합니다. 시작하려면 먼저 다음 명령으로 `electrodb`를 설치합니다:
+
+<InstallCommand pkg="electrodb @aws-sdk/client-dynamodb" />
+
+<Aside>
+모든 의존성은 루트 `package.json`에 추가됩니다. `@aws/nx-plugin`은 [단일 버전 정책](https://nx.dev/concepts/decisions/dependency-management#single-version-policy) 원칙을 따릅니다. 자세한 내용은 <Link path="guides/typescript-project#dependencies">ts#project 가이드</Link>를 참조하세요.
+</Aside>
+
+이제 ER 다이어그램에 따라 ElectroDB 엔티티를 정의하기 위해 `packages/game-api/backend/src/entities` 폴더 내에 다음 파일들을 생성합니다:
+
+<Tabs>
+  <TabItem label="action.ts">
+```typescript
+import { Entity } from 'electrodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+
+export const createActionEntity = (client?: DynamoDBClient) =>
+  new Entity(
+    {
+      model: {
+        entity: 'Action',
+        version: '1',
+        service: 'game',
+      },
+      attributes: {
+        playerName: { type: 'string', required: true, readOnly: true },
+        timestamp: {
+          type: 'string',
+          required: true,
+          readOnly: true,
+          set: () => new Date().toISOString(),
+          default: () => new Date().toISOString(),
+        },
+        role: { type: 'string', required: true, readOnly: true },
+        content: { type: 'string', required: true, readOnly: true },
+      },
+      indexes: {
+        primary: {
+          pk: { field: 'pk', composite: ['playerName'] },
+          sk: { field: 'sk', composite: ['timestamp'] },
+        },
+      },
+    },
+    { client, table: process.env.TABLE_NAME },
+  );
+```
+  </TabItem>
+  <TabItem label="game.ts">
+```typescript
+import { Entity } from 'electrodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+
+export const createGameEntity = (client?: DynamoDBClient) =>
+  new Entity(
+    {
+      model: {
+        entity: 'Game',
+        version: '1',
+        service: 'game',
+      },
+      attributes: {
+        playerName: { type: 'string', required: true, readOnly: true },
+        genre: { type: 'string', required: true, readOnly: true },
+        lastUpdated: {
+          type: 'string',
+          required: true,
+          default: () => new Date().toISOString(),
+        },
+      },
+      indexes: {
+        primary: {
+          pk: { field: 'pk', composite: ['playerName'] },
+          sk: {
+            field: 'sk',
+            composite: [],
+          },
+        },
+      },
+    },
+    { client, table: process.env.TABLE_NAME },
+  );
+```
+  </TabItem>
+</Tabs>
+
+ElectroDB는 매우 강력하며 타입 정의뿐만 아니라 타임스탬프와 같은 특정 값에 대한 기본값도 제공할 수 있습니다. 또한 ElectroDB는 DynamoDB 사용 시 권장되는 [단일 테이블 설계](https://electrodb.dev/en/core-concepts/single-table-relationships/) 방식을 따릅니다.
+
+<Aside>
+ElectroDB는 [컬렉션](https://electrodb.dev/en/modeling/collections/)을 지원하지만, 본 튜토리얼에서는 단순화를 위해 사용하지 않았습니다.
+</Aside>
+
+### tRPC 컨텍스트에 DynamoDB 클라이언트 추가
+
+모든 프로시저에서 DynamoDB 클라이언트에 접근할 수 있도록 컨텍스트를 통해 단일 인스턴스를 전달해야 합니다. 이를 위해 `packages/game-api/backend/src` 내에서 다음 변경사항을 적용합니다:
+
+<Tabs>
+  <TabItem label="middleware/dynamodb.ts">
+```typescript
+// middleware/dynamodb.ts
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { initTRPC } from '@trpc/server';
+
+export interface IDynamoDBContext {
+  dynamoDb?: DynamoDBClient;
+}
+
+export const createDynamoDBPlugin = () => {
+  const t = initTRPC.context<IDynamoDBContext>().create();
+  return t.procedure.use(async (opts) => {
+    const dynamoDb = new DynamoDBClient();
+
+    const response = await opts.next({
+      ctx: {
+        ...opts.ctx,
+        dynamoDb,
+      },
+    });
+
+    return response;
+  });
+};
+```
+
+이 플러그인은 `DynamoDBClient`를 생성하고 컨텍스트에 주입합니다.
+  </TabItem>
+  <TabItem label="middleware/index.ts">
+```diff lang="ts"
+// middleware/index.ts
+import { CreateAWSLambdaContextOptions } from '@trpc/server/adapters/aws-lambda';
+import type { APIGatewayProxyEventV2WithIAMAuthorizer } from 'aws-lambda';
+import { ILoggerContext } from './logger.js';
+import { IMetricsContext } from './metrics.js';
+import { ITracerContext } from './tracer.js';
++import { IDynamoDBContext } from './dynamodb.js';
+
++export * from './dynamodb.js';
+export * from './logger.js';
+export * from './metrics.js';
+export * from './tracer.js';
+export * from './error.js';
+
+export type IMiddlewareContext =
+  CreateAWSLambdaContextOptions<APIGatewayProxyEventV2WithIAMAuthorizer> &
++    IDynamoDBContext &
+    ILoggerContext &
+    IMetricsContext &
+    ITracerContext;
+```
+
+`IMiddlewareContext`에 `IDynamoDBContext`를 추가합니다.
+  </TabItem>
+  <TabItem label="init.ts">
+```diff lang="ts"
+// init.ts
+import { initTRPC } from '@trpc/server';
+import {
++  createDynamoDBPlugin,
+  createErrorPlugin,
+  createLoggerPlugin,
+  createMetricsPlugin,
+  createTracerPlugin,
+  IMiddlewareContext,
+} from './middleware/index.js';
+
+process.env.POWERTOOLS_SERVICE_NAME = 'GameApi';
+process.env.POWERTOOLS_METRICS_NAMESPACE = 'GameApi';
+
+export type Context = IMiddlewareContext;
+
+export const t = initTRPC.context<Context>().create();
+
+export const publicProcedure = t.procedure
++  .unstable_concat(createDynamoDBPlugin())
+  .unstable_concat(createLoggerPlugin())
+  .unstable_concat(createTracerPlugin())
+  .unstable_concat(createMetricsPlugin())
+  .unstable_concat(createErrorPlugin());
+```
+
+DynamoDB 플러그인이 적용되었습니다.
+
+<Aside>
+여기서는 새로운 API이기 때문에 `unstable_` 접두사가 붙은 `unstable_concat` API를 사용합니다. 자세한 내용은 [concat 가이드](https://trpc.io/docs/server/middlewares#concat)를 참조하세요.
+</Aside>
+  </TabItem>
+</Tabs>
+
+### 프로시저 정의
+
+이제 API 메서드를 구현할 차례입니다. `packages/game-api/backend/src/procedures` 내에서 다음 변경사항을 적용합니다:
+
+<Tabs>
+  <TabItem label="query-actions.ts">
+```typescript
+import { createActionEntity } from '../entities/action.js';
+import {
+  ActionSchema,
+  IAction,
+  QueryInputSchema,
+  createPaginatedQueryOutput,
+} from ':dungeon-adventure/game-api-schema';
+import { publicProcedure } from '../init.js';
+import { z } from 'zod';
+
+export const queryActions = publicProcedure
+  .input(QueryInputSchema.extend({ playerName: z.string() }))
+  .output(createPaginatedQueryOutput(ActionSchema))
+  .query(async ({ input, ctx }) => {
+    const actionEntity = createActionEntity(ctx.dynamoDb);
+    const result = await actionEntity.query
+      .primary({ playerName: input.playerName })
+      .go({ cursor: input.cursor, count: input.limit });
+
+    return {
+      items: result.data as IAction[],
+      cursor: result.cursor,
+    };
+  });
+```
+  </TabItem>
+  <TabItem label="query-games.ts">
+```typescript
+import { createGameEntity } from '../entities/game.js';
+import {
+  GameSchema,
+  IGame,
+  QueryInputSchema,
+  createPaginatedQueryOutput,
+} from ':dungeon-adventure/game-api-schema';
+import { publicProcedure } from '../init.js';
+
+export const queryGames = publicProcedure
+  .input(QueryInputSchema)
+  .output(createPaginatedQueryOutput(GameSchema))
+  .query(async ({ input, ctx }) => {
+    const gameEntity = createGameEntity(ctx.dynamoDb);
+    const result = await gameEntity.scan.go({
+      cursor: input.cursor,
+      count: input.limit,
+    });
+
+    return {
+      items: result.data as IGame[],
+      cursor: result.cursor,
+    };
+  });
+```
+  </TabItem>
+  <TabItem label="save-action.ts">
+```typescript
+import { ActionSchema, IAction } from ':dungeon-adventure/game-api-schema';
+import { publicProcedure } from '../init.js';
+import { createActionEntity } from '../entities/action.js';
+import { createGameEntity } from '../entities/game.js';
+
+export const saveAction = publicProcedure
+  .input(ActionSchema.omit({ timestamp: true }))
+  .output(ActionSchema)
+  .mutation(async ({ input, ctx }) => {
+    const actionEntity = createActionEntity(ctx.dynamoDb);
+    const gameEntity = createGameEntity(ctx.dynamoDb);
+
+    const action = await actionEntity.put(input).go();
+    await gameEntity
+      .update({ playerName: input.playerName })
+      .set({ lastUpdated: action.data.timestamp })
+      .go();
+    return action.data as IAction;
+  });
+```
+  </TabItem>
+  <TabItem label="save-game.ts">
+```typescript
+import { createGameEntity } from '../entities/game.js';
+import { GameSchema, IGame } from ':dungeon-adventure/game-api-schema';
+import { publicProcedure } from '../init.js';
+
+export const saveGame = publicProcedure
+  .input(GameSchema.omit({ lastUpdated: true }))
+  .output(GameSchema)
+  .mutation(async ({ input, ctx }) => {
+    const gameEntity = createGameEntity(ctx.dynamoDb);
+
+    const result = await gameEntity.put(input).go();
+    return result.data as IGame;
+  });
+```
+  </TabItem>
+</Tabs>
+
+이 프로젝트에서 사용하지 않을 `echo.ts` 파일(`packages/game-api/backend/src/procedures` 내)도 삭제할 수 있습니다.
+
+### 라우터 설정
+
+정의한 프로시저를 API에 연결하기 위해 다음 파일을 업데이트합니다:
+
+```diff lang="ts"
+// packages/game-api/backend/src/router.ts
+import {
+  awsLambdaRequestHandler,
+  CreateAWSLambdaContextOptions,
+} from '@trpc/server/adapters/aws-lambda';
+-import { echo } from './procedures/echo.js';
+import { t } from './init.js';
+import { APIGatewayProxyEventV2WithIAMAuthorizer } from 'aws-lambda';
++import { queryActions } from './procedures/query-actions.js';
++import { saveAction } from './procedures/save-action.js';
++import { queryGames } from './procedures/query-games.js';
++import { saveGame } from './procedures/save-game.js';
+
+export const router = t.router;
+
+export const appRouter = router({
+-  echo,
++  actions: router({
++    query: queryActions,
++    save: saveAction,
++  }),
++  games: router({
++    query: queryGames,
++    save: saveGame,
++  }),
+});
+
+export const handler = awsLambdaRequestHandler({
+  router: appRouter,
+  createContext: (
+    ctx: CreateAWSLambdaContextOptions<APIGatewayProxyEventV2WithIAMAuthorizer>,
+  ) => ctx,
+});
+
+export type AppRouter = typeof appRouter;
+```
+
+### 인프라스트럭처
+
+마지막 단계로 DynamoDB 테이블을 생성하고 Game API에서 작업을 수행할 수 있는 권한을 부여하기 위해 인프라스트럭처를 업데이트합니다. `packages/infra/src` 내에서 다음 변경사항을 적용합니다:
+
+<Tabs>
+  <TabItem label="constructs/electrodb-table.ts">
+```typescript
+// constructs/electrodb-table.ts
+import { CfnOutput } from 'aws-cdk-lib';
+import {
+  AttributeType,
+  BillingMode,
+  ProjectionType,
+  Table,
+  TableProps,
+} from 'aws-cdk-lib/aws-dynamodb';
+import { Construct } from 'constructs';
+
+export type ElectrodbDynamoTableProps = Omit<
+  TableProps,
+  'partitionKey' | 'sortKey' | 'billingMode'
+>;
+
+export class ElectrodbDynamoTable extends Table {
+  constructor(scope: Construct, id: string, props?: ElectrodbDynamoTableProps) {
+    super(scope, id, {
+      partitionKey: {
+        name: 'pk',
+        type: AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'sk',
+        type: AttributeType.STRING,
+      },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      ...props,
+    });
+
+    this.addGlobalSecondaryIndex({
+      indexName: 'gsi1pk-gsi1sk-index',
+      partitionKey: {
+        name: 'gsi1pk',
+        type: AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'gsi1sk',
+        type: AttributeType.STRING,
+      },
+      projectionType: ProjectionType.ALL,
+    });
+
+    new CfnOutput(this, 'TableName', { value: this.tableName });
+  }
+}
+```
+  </TabItem>
+  <TabItem label="stacks/application-stack.ts">
+```diff lang="ts"
+// stacks/application-stack.ts
+import {
+  GameApi,
+  GameUI,
+  StoryApi,
+  UserIdentity,
+} from ':dungeon-adventure/common-constructs';
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
++import { ElectrodbDynamoTable } from '../constructs/electrodb-table.js';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // The code that defines your stack goes here
+    const userIdentity = new UserIdentity(this, 'UserIdentity');
++
++    const electroDbTable = new ElectrodbDynamoTable(this, 'ElectroDbTable');
+
+    const gameApi = new GameApi(this, 'GameApi');
+    const storyApi = new StoryApi(this, 'StoryApi');
++
++    gameApi.routerFunction.addEnvironment(
++      'TABLE_NAME',
++      electroDbTable.tableName,
++    );
++    // gameAPI에 DynamoDB 읽기/쓰기 권한 부여
++    electroDbTable.grantReadWriteData(gameApi.routerFunction);
+
+    // 인증된 역할에 API 호출 권한 부여
+    [storyApi, gameApi].forEach((api) =>
+      api.grantInvokeAccess(userIdentity.identityPool.authenticatedRole),
+    );
+
+    // runtime-config.json 자동 구성 위해 마지막에 인스턴스화
+    new GameUI(this, 'GameUI');
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+### 배포 및 테스트
+
+먼저 코드베이스를 빌드합니다:
+
+<NxCommands commands={['run-many --target build --all']} />
+
+<Aside type="tip">
+린트 오류가 발생하면 다음 명령으로 자동 수정할 수 있습니다.
+
+<NxCommands commands={['run-many --target lint --configuration=fix --all']} />
+</Aside>
+
+이제 다음 명령으로 애플리케이션을 배포할 수 있습니다:
+
+<NxCommands commands={['run @dungeon-adventure/infra:deploy dungeon-adventure-infra-sandbox']} />
+
+첫 배포는 약 8분 정도 소요됩니다. 이후 배포는 약 2분 정도 걸립니다.
+
+:::tip
+람다 함수 코드 변경을 반복하는 경우, 코드베이스 빌드 후 `--hotswap` 플래그를 사용하여 배포 시간을 크게 단축(2-3초)할 수 있습니다.
+
+<NxCommands commands={['run @dungeon-adventure/infra:deploy dungeon-adventure-infra-sandbox --hotswap']} />
+:::
+
+<Drawer title="배포 명령" trigger="모든 스택을 한 번에 배포할 수도 있습니다. 자세한 내용을 보려면 클릭하세요.">
+
+CDK 애플리케이션에 포함된 모든 스택을 다음 명령으로 배포할 수 있습니다:
+
+<NxCommands commands={['run @dungeon-adventure/infra:deploy --all']} />
+
+이 방법은 인프라 프로덕션과 같은 별도의 배포 단계로 스택을 분리할 경우 원치 않는 배포가 발생할 수 있으므로 **권장되지 않습니다**!
+
+</Drawer>
+
+배포가 완료되면 다음과 유사한 출력을 확인할 수 있습니다 _(일부 값은 편집됨)_:
+
+```bash
+dungeon-adventure-infra-sandbox
+dungeon-adventure-infra-sandbox: deploying... [2/2]
+
+ ✅  dungeon-adventure-infra-sandbox
+
+✨  Deployment time: 354s
+
+Outputs:
+dungeon-adventure-infra-sandbox.ElectroDbTableTableNameXXX = dungeon-adventure-infra-sandbox-ElectroDbTableXXX-YYY
+dungeon-adventure-infra-sandbox.GameApiGameApiUrlXXX = https://xxx.region.amazonaws.com/
+dungeon-adventure-infra-sandbox.GameUIDistributionDomainNameXXX = xxx.cloudfront.net
+dungeon-adventure-infra-sandbox.StoryApiStoryApiUrlXXX = https://xxx.execute-api.region.amazonaws.com/
+dungeon-adventure-infra-sandbox.UserIdentityUserIdentityIdentityPoolIdXXX = region:xxx
+dungeon-adventure-infra-sandbox.UserIdentityUserIdentityUserPoolIdXXX = region_xxx
+```
+
+다음 방법 중 하나로 API를 테스트할 수 있습니다:
+<ul>
+<li>tRPC 백엔드 로컬 인스턴스를 시작하고 `curl`로 API 호출</li>
+<li>
+<Drawer title="Sigv4 활성화된 curl" trigger="배포된 API를 sigv4 활성화된 curl로 호출">
+`.bashrc` 파일에 다음 스크립트를 추가하거나(추가 후 `source` 실행) 동일한 터미널에 직접 붙여넣을 수 있습니다.
+```bash
+// ~/.bashrc
+acurl () {
+    REGION=$1
+    SERVICE=$2
+    shift; shift;
+    curl --aws-sigv4 "aws:amz:$REGION:$SERVICE" --user "$(aws configure get aws_access_key_id):$(aws configure get aws_secret_access_key)" -H "X-Amz-Security-Token: $(aws configure get aws_session_token)" "$@"
+}
+```
+
+sigv4 인증된 curl 요청은 다음 예시처럼 실행할 수 있습니다:
+
+###### API Gateway
+```bash
+acurl ap-southeast-2 execute-api -X GET https://xxx
+```
+
+###### 스트리밍 람다 함수 URL
+```bash
+acurl ap-southeast-2 lambda -N -X POST https://xxx
+```
+</Drawer>
+</li>
+</ul>
+
+
+<Tabs>
+  <TabItem label="로컬">
+    다음 명령으로 로컬 `game-api` 서버를 시작합니다:
+
+    <NxCommands highlights={['dungeon-adventure-infra-sandbox-ElectroDbTableXXX-YYY']} env={{TABLE_NAME:"dungeon-adventure-infra-sandbox-ElectroDbTableXXX-YYY"}} commands={["run @dungeon-adventure/game-api-backend:serve"]} />
+
+    <Aside type="caution">
+    CDK 배포 출력 값 `dungeon-adventure-infra-sandbox.ElectroDbTableTableNameXXX`을 사용하여 하이라이트된 자리 표시자를 교체하세요.
+    </Aside>
+
+    서버가 실행되면 다음 명령으로 호출할 수 있습니다:
+
+    ```bash
+    curl -X GET http://localhost:2022/games.query\?input="\\{\\}"
+    ```
+  </TabItem>
+  <TabItem label="배포된 버전">
+```bash "https://xxx.execute-api.region.amazonaws.com/" "ap-southeast-2"
+acurl ap-southeast-2 execute-api -X GET \
+  https://xxx.execute-api.region.amazonaws.com/games.query\?input\="\{\}"
+```
+    <Aside type="caution">
+    CDK 배포 출력 값 `dungeon-adventure-infra-sandbox.GameApiGameApiUrlXXX`을 사용하여 하이라이트된 자리 표시자를 교체하고 지역을 적절히 설정하세요.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+명령이 성공적으로 실행되면 다음과 같은 응답을 확인할 수 있습니다:
+
+```json
+{"result":{"data":{"items":[],"cursor":null}}}
+```
+
+축하합니다. tRPC를 사용하여 첫 번째 API를 구축하고 배포했습니다! 🎉🎉🎉

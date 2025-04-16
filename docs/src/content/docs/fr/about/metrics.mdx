@@ -1,0 +1,10 @@
+---
+title: "Métriques d'utilisation"
+description: "Comment @aws/nx-plugin collecte les métriques"
+---
+
+
+
+Afin de nous aider à améliorer le plugin Nx pour AWS, nous collectons des métriques sur l'utilisation des générateurs. Ce processus n'implique aucune requête réseau supplémentaire, nous utilisons simplement les métriques d'utilisation AWS existantes.
+
+Pour rester transparents, nous ajoutons un ID, une version et une liste d'ID de générateurs aux descriptions de piles CloudFormation. Cette opération est effectuée dans le `MetricsAspect` situé dans `common/constructs`.

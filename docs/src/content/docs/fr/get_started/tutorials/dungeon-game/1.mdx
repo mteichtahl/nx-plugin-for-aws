@@ -1,0 +1,867 @@
+---
+title: "Jeu de Donjon IA"
+description: "Un guide pas à pas pour construire un jeu d'aventure de donjon alimenté par l'IA en utilisant le @aws/nx-plugin."
+---
+
+
+
+import { Aside, Code, FileTree, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import Link from '@components/link.astro';
+import Drawer from '@components/drawer.astro';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import InstallCommand from '@components/install-command.astro';
+import CreateNxWorkspaceCommand from '@components/create-nx-workspace-command.astro';
+import dungeonAdventureArchitecturePng from '@assets/dungeon-game-architecture.png'
+import dungeonAdventureErPng from '@assets/dungeon-adventure-er.png'
+import baselineWebsitePng from '@assets/baseline-website.png'
+import baselineGamePng from '@assets/baseline-game.png'
+import nxGraphPng from '@assets/nx-graph.png'
+import gameSelectPng from '@assets/game-select.png'
+import gameConversationPng from '@assets/game-conversation.png'
+
+## Module 1 : Configuration du monorepo
+
+Nous allons commencer par créer un nouveau monorepo. Depuis le répertoire de votre choix, exécutez la commande suivante :
+
+<CreateNxWorkspaceCommand workspace="dungeon-adventure" />
+
+Cela configurera un monorepo NX dans le répertoire `dungeon-adventure` que vous pourrez ensuite ouvrir dans vscode. Le résultat devrait ressembler à ceci :
+
+<FileTree>
+- .nx/
+- .vscode/
+- node_modules/
+- packages/ emplacement des sous-projets
+- .gitignore
+- .npmrc
+- .prettierignore
+- .prettierrc
+- nx.json configure les paramètres par défaut du CLI NX et du monorepo
+- package.json définit toutes les dépendances Node
+- pnpm-lock.yaml ou bun.lock, yarn.lock, package-lock.json selon le gestionnaire de paquets
+- pnpm-workspace.yaml si utilisation de pnpm
+- README.md
+- tsconfig.base.json étendu par tous les sous-projets Node
+- tsconfig.json
+</FileTree>
+
+Pour intégrer des composants du `@aws/nx-plugin` dans le monorepo, nous devons l'installer comme dépendance de développement en exécutant cette commande depuis la racine du monorepo `dungeon-adventure` :
+
+<InstallCommand dev pkg="@aws/nx-plugin" />
+
+Nous sommes maintenant prêts à créer nos différents sous-projets avec le `@aws/nx-plugin`.
+
+<Aside type="tip">Il est recommandé de valider tous les fichiers non indexés dans Git avant d'exécuter des générateurs. Cela permet de visualiser les modifications via `git diff`</Aside>
+
+### API de jeu
+
+Commençons par créer notre API de jeu. Créons une API tRPC nommée `GameApi` en suivant ces étapes :
+
+<RunGenerator generator="ts#trpc-api" requiredParameters={{apiName:"GameApi"}} noInteractive />
+
+<br />
+
+De nouveaux fichiers devraient apparaître dans l'arborescence.
+
+<Aside>
+Le `package.json` racine est maintenant configuré avec un `type` à `module`, ce qui signifie qu'ESM est le type de module par défaut pour tous les sous-projets Node générés par le `@aws/nx-plugin`. Pour plus de détails, consultez le <Link path="guides/typescript-project">guide ts#project</Link>.
+</Aside>
+
+<Drawer title="Fichiers mis à jour par ts#trpc-api" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Voici la liste des fichiers générés par le générateur `ts#trpc-api`. Examinons les fichiers clés :
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/ constructions CDK spécifiques
+          - http-apis/
+            - **game-api.ts** construction CDK pour l'API tRPC
+            - index.ts
+            - ...
+          - index.ts
+        - core/ constructions CDK génériques
+          - http-api.ts construction de base pour une API HTTP
+          - index.ts
+          - runtime-config.ts
+        - index.ts
+      - project.json
+      - ...
+    - types/ types partagés
+      - src/
+        - index.ts
+        - runtime-config.ts définition d'interface utilisée par CDK et le site
+      - project.json
+      - ...
+  - game-api/
+    - backend/ code d'implémentation tRPC
+      - src/
+        - client/ client vanilla pour appels machine à machine
+          - index.ts
+          - sigv4.ts
+        - middleware/ instrumentation Powertools
+          - error.ts
+          - index.ts
+          - logger.ts
+          - metrics.ts
+          - tracer.ts
+        - procedures/ implémentations des procédures/routes de l'API
+          - **echo.ts**
+        - index.ts
+        - init.ts configure le contexte et middleware
+        - local-server.ts pour exécuter le serveur tRPC localement
+        - **router.ts** point d'entrée du handler Lambda définissant toutes les procédures
+      - project.json
+      - ...
+    - schema/
+      - src/
+        - procedures/
+          - **echo.ts**
+        - index.ts
+      - project.json
+      - ...
+- eslint.config.mjs
+- vitest.workspace.ts
+</FileTree>
+
+Examinons quelques fichiers clés :
+
+```ts {5,12}
+// packages/game-api/backend/src/router.ts
+import {
+  awsLambdaRequestHandler,
+  CreateAWSLambdaContextOptions,
+} from '@trpc/server/adapters/aws-lambda';
+import { echo } from './procedures/echo.js';
+import { t } from './init.js';
+import { APIGatewayProxyEventV2WithIAMAuthorizer } from 'aws-lambda';
+
+export const router = t.router;
+
+export const appRouter = router({
+  echo,
+});
+
+export const handler = awsLambdaRequestHandler({
+  router: appRouter,
+  createContext: (
+    ctx: CreateAWSLambdaContextOptions<APIGatewayProxyEventV2WithIAMAuthorizer>,
+  ) => ctx,
+});
+
+export type AppRouter = typeof appRouter;
+```
+Le routeur définit le point d'entrée de l'API tRPC et déclare toutes les méthodes. La méthode `echo` est implémentée dans `./procedures/echo.ts`.
+
+```ts {2-5}
+// packages/game-api/backend/src/procedures/echo.ts
+import { publicProcedure } from '../init.js';
+import {
+  EchoInputSchema,
+  EchoOutputSchema,
+} from ':dungeon-adventure/game-api-schema';
+
+export const echo = publicProcedure
+  .input(EchoInputSchema)
+  .output(EchoOutputSchema)
+  .query((opts) => ({ result: opts.input.message }));
+```
+
+Cette implémentation utilise des schémas Zod importés depuis `:dungeon-adventure/game-api-schema`, un [alias TypeScript](https://www.typescriptlang.org/tsconfig/paths.html).
+
+<Aside type="tip">Si vous voyez une erreur d'import dans votre IDE, c'est parce que le backend n'a pas encore de référence TypeScript dans son tsconfig.json. Nx [configure](https://nx.dev/nx-api/js/generators/typescript-sync) ces références dynamiquement lors des builds. Consultez le <Link path="guides/typescript-project#importing-your-library-code-inother-projects">guide TypeScript</Link>.</Aside>
+
+```ts
+// packages/game-api/schema/src/procedures/echo.ts
+import { z } from 'zod';
+
+export const EchoInputSchema = z.object({
+  message: z.string(),
+});
+
+export type IEchoInput = z.TypeOf<typeof EchoInputSchema>;
+
+export const EchoOutputSchema = z.object({
+  result: z.string(),
+});
+
+export type IEchoOutput = z.TypeOf<typeof EchoOutputSchema>;
+```
+
+Les schémas tRPC utilisent [Zod](https://zod.dev/) avec des types générés via `z.TypeOf`.
+
+```ts
+// packages/common/constructs/src/app/http-apis/game-api.ts
+import { Construct } from 'constructs';
+import * as url from 'url';
+import { HttpApi } from '../../core/http-api.js';
+import { HttpIamAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+
+export class GameApi extends HttpApi {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      defaultAuthorizer: new HttpIamAuthorizer(),
+      apiName: 'GameApi',
+      runtime: Runtime.NODEJS_LATEST,
+      handler: 'index.handler',
+      handlerFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/game-api/backend/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+Cette construction CDK référence le bundle pré-compilé, évitant le bundling lors du `cdk synth`.
+
+</Drawer>
+
+### API de narration
+
+Créons maintenant notre API de narration avec FastAPI :
+
+<RunGenerator generator="py#fast-api" requiredParameters={{name:"StoryApi"}} noInteractive />
+
+De nouveaux fichiers devraient apparaître.
+<Drawer title="Fichiers mis à jour par py#fast-api" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Voici les fichiers générés par `py#fast-api` :
+<FileTree>
+- .venv/ environnement virtuel unique
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/
+          - http-apis/
+            - **story-api.ts** construction CDK pour FastAPI
+            - index.ts exporte la nouvelle API
+      - project.json ajoute une dépendance sur story_api
+    - types/
+      - src/
+        - **runtime-config.ts** ajoute StoryApi
+  - story_api/
+    - story_api/ module Python
+      - init.py configure Powertools et FastAPI
+      - **main.py** point d'entrée Lambda avec les routes
+    - tests/
+    - .python-version
+    - project.json
+    - pyproject.toml
+- .python-version version Python figée
+- pyproject.toml
+- uv.lock
+</FileTree>
+
+```ts
+// packages/common/constructs/src/app/http-apis/story-api.ts
+import { Construct } from 'constructs';
+import * as url from 'url';
+import { HttpApi } from '../../core/http-api.js';
+import { HttpIamAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+
+export class StoryApi extends HttpApi {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      defaultAuthorizer: new HttpIamAuthorizer(),
+      apiName: 'StoryApi',
+      runtime: Runtime.PYTHON_3_12,
+      handler: 'story_api.main.handler',
+      handlerFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/story_api/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+Cette construction CDK référence le bundle Python pré-compilé.
+
+```diff lang="ts"
+// packages/common/types/src/runtime-config.ts
+export type ApiUrl = string;
+export interface IRuntimeConfig {
+  httpApis: {
+    GameApi: ApiUrl;
++    StoryApi: ApiUrl;
+  };
+}
+```
+
+Le générateur a ajouté `StoryApi` à `IRuntimeConfig` pour la sécurité des types frontend.
+
+```py
+// packages/story_api/story_api/main.py
+from .init import app, lambda_handler, tracer
+
+handler = lambda_handler
+
+@app.get("/")
+@tracer.capture_method
+def read_root():
+    return {"Hello": "World"}
+```
+
+Les routes API sont définies ici avec [Pydantic](https://docs.pydantic.dev/latest/) pour la validation.
+
+</Drawer>
+
+### Interface de jeu : Site web
+
+Créons l'interface utilisateur avec Cloudscape :
+
+<RunGenerator generator="ts#cloudscape-website" requiredParameters={{name:"GameUI"}} noInteractive />
+
+De nouveaux fichiers apparaissent.
+<Drawer title="Fichiers mis à jour par ts#cloudscape-website" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Fichiers clés générés :
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/
+          - static-websites/
+            - **game-ui.ts** construction CDK pour l'UI
+        - core/
+          - static-website.ts construction générique
+  - game-ui/
+    - public/
+    - src/
+      - components/
+        - AppLayout/ mise en page globale
+          - index.ts
+          - navitems.ts éléments de navigation
+      - hooks/
+        - useAppLayout.tsx configuration dynamique
+      - routes/ routage basé fichiers
+        - index.tsx redirection vers '/welcome'
+        - __root.tsx composant de base
+        - welcome/
+          - **index.tsx**
+        - config.ts
+        - **main.tsx** entrée React
+        - routeTree.gen.ts généré automatiquement
+        - styles.css
+    - index.html
+    - project.json
+    - vite.config.ts
+</FileTree>
+
+```ts
+// packages/common/constructs/src/app/static-websites/game-ui.ts
+import * as url from 'url';
+import { Construct } from 'constructs';
+import { StaticWebsite } from '../../core/index.js';
+
+export class GameUI extends StaticWebsite {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      websiteFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/game-ui/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+Cette construction utilise le bundle Vite généré.
+
+```tsx
+// packages/game-ui/src/main.tsx
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+
+import '@cloudscape-design/global-styles/index.css';
+
+const router = createRouter({ routeTree });
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+Configuration du routage React avec [routage basé fichiers](https://tanstack.com/router/v1/docs/framework/react/routing/file-based-routing).
+
+```tsx
+// packages/game-ui/src/routes/welcome/index.tsx
+import {
+  ContentLayout,
+  Header,
+  SpaceBetween,
+  Container,
+} from '@cloudscape-design/components';
+import { createFileRoute } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/welcome/')({
+  component: RouteComponent,
+});
+
+function RouteComponent() {
+  return (
+    <ContentLayout header={<Header>Welcome</Header>}>
+      <SpaceBetween size="l">
+        <Container>Bienvenue sur votre nouveau site Cloudscape !</Container>
+      </SpaceBetween>
+    </ContentLayout>
+  );
+}
+```
+
+Composant pour la route `/welcome`.
+
+</Drawer>
+
+### Interface de jeu : Authentification
+
+Ajoutons l'authentification Cognito :
+
+<RunGenerator generator="ts#cloudscape-website#auth" requiredParameters={{cognitoDomain:"game-ui", project:"@dungeon-adventure/game-ui", allowSignup:true}} noInteractive />
+
+<Drawer title="Fichiers mis à jour par ts#cloudscape-website#auth" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Modifications clés :
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - core/
+          - user-identity.ts construction Cognito
+    - types/
+      - src/
+        - runtime-config.ts ajout cognitoProps
+  - game-ui/
+    - src/
+      - components/
+        - AppLayout/
+          - index.tsx ajout utilisateur connecté
+        - CognitoAuth/
+          - index.ts gestion authentification
+        - RuntimeConfig/
+          - index.tsx récupère runtime-config.json
+      - hooks/
+        - useRuntimeConfig.tsx
+      - **main.tsx** injection Cognito
+</FileTree>
+
+```diff lang="tsx"
+// packages/game-ui/src/main.tsx
++import CognitoAuth from './components/CognitoAuth';
++import RuntimeConfigProvider from './components/RuntimeConfig';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+import '@cloudscape-design/global-styles/index.css';
+const router = createRouter({ routeTree });
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
++        <RuntimeConfigProvider>
++          <CognitoAuth>
+            <RouterProvider router={router} />
++          </CognitoAuth>
++        </RuntimeConfigProvider>
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+Ajout des fournisseurs Cognito et RuntimeConfig.
+
+</Drawer>
+
+### Interface de jeu : Connexion à l'API de narration
+
+Connectons l'UI à l'API Story :
+
+<RunGenerator generator="api-connection" requiredParameters={{sourceProject:"@dungeon-adventure/game-ui", targetProject:"dungeon_adventure.story_api"}} noInteractive />
+
+<Drawer title="Fichiers mis à jour par api-connection (UI -> FastAPI)" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Modifications :
+<FileTree>
+- packages/
+  - game-ui/
+    - src/
+      - hooks/
+        - useSigV4.tsx signature des requêtes
+        - useStoryApiClient.tsx client API
+        - useStoryApi.tsx intégration TanStack Query
+      - components/
+        - QueryClientProvider.tsx fournisseur TanStack
+        - StoryApiProvider.tsx fournisseur API
+      - main.tsx injection des fournisseurs
+    - .gitignore ignore les fichiers générés
+    - project.json cibles de génération OpenAPI
+  - story_api/
+    - scripts/
+      - generate_open_api.py
+    - project.json génération openapi.json
+</FileTree>
+
+```tsx {1,12-15}
+// packages/game-ui/src/hooks/useStoryApiClient.tsx
+import { StoryApi } from '../generated/story-api/client.gen';
+import { useSigV4 } from './useSigV4';
+import { useRuntimeConfig } from './useRuntimeConfig';
+import { useMemo } from 'react';
+
+export const useStoryApi = (): StoryApi => {
+  const runtimeConfig = useRuntimeConfig();
+  const apiUrl = runtimeConfig.httpApis.StoryApi;
+  const sigv4Client = useSigV4();
+  return useMemo(
+    () =>
+      new StoryApi({
+        url: apiUrl,
+        fetch: sigv4Client,
+      }),
+    [apiUrl, sigv4Client],
+  );
+};
+```
+
+Hook pour appels authentifiés à l'API Story.
+
+```tsx
+// packages/game-ui/src/components/StoryApiProvider.tsx
+import { createContext, FC, PropsWithChildren, useMemo } from 'react';
+import { useStoryApiClient } from '../hooks/useStoryApiClient';
+import { StoryApiOptionsProxy } from '../generated/story-api/options-proxy.gen';
+
+export const StoryApiContext = createContext<StoryApiOptionsProxy | undefined>(
+  undefined,
+);
+
+export const StoryApiProvider: FC<PropsWithChildren> = ({ children }) => {
+  const client = useStoryApiClient();
+  const optionsProxy = useMemo(
+    () => new StoryApiOptionsProxy({ client }),
+    [client],
+  );
+
+  return (
+    <StoryApiContext.Provider value={optionsProxy}>
+      {children}
+    </StoryApiContext.Provider>
+  );
+};
+
+export default StoryApiProvider;
+```
+
+Fournisseur pour l'API Story avec TanStack Query.
+
+<Aside type="caution">
+Les fichiers `src/generated/story-api/*.gen.ts` ne doivent jamais être modifiés manuellement.
+</Aside>
+
+</Drawer>
+
+### Interface de jeu : Connexion à l'API de jeu
+
+Connectons l'UI à l'API Game :
+
+<RunGenerator generator="api-connection" requiredParameters={{sourceProject:"@dungeon-adventure/game-ui", targetProject:"@dungeon-adventure/game-api-backend"}} noInteractive />
+
+<Drawer title="Fichiers mis à jour par api-connection (UI -> tRPC)" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Modifications :
+<FileTree>
+- packages/
+  - game-ui/
+    - src/
+      - components/
+        - TrpcClients/
+          - index.tsx
+          - TrpcApis.tsx APIs tRPC configurées
+          - TrpcClientProviders.tsx fournisseurs par API
+          - TrpcProvider.tsx
+      - hooks/
+        - **useGameApi.tsx** hooks tRPC
+      - **main.tsx** injection des fournisseurs
+</FileTree>
+
+```tsx
+// packages/game-ui/src/hooks/useGameApi.tsx
+import { TrpcApis } from '../components/TrpcClients';
+
+export const useGameApi = () => TrpcApis.GameApi.useTRPC();
+```
+
+Hook utilisant l'intégration [React Query de tRPC](https://trpc.io/blog/introducing-tanstack-react-query-client).
+
+```diff lang="tsx"
+// packages/game-ui/src/main.tsx
++import TrpcClientProviders from './components/TrpcClients';
++import QueryClientProvider from './components/QueryClientProvider';
+import CognitoAuth from './components/CognitoAuth';
+import RuntimeConfigProvider from './components/RuntimeConfig';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+import '@cloudscape-design/global-styles/index.css';
+const router = createRouter({ routeTree });
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
+        <RuntimeConfigProvider>
+          <CognitoAuth>
++            <QueryClientProvider>
++              <TrpcClientProviders>
+                <RouterProvider router={router} />
++              </TrpcClientProviders>
++            </QueryClientProvider>
+          </CognitoAuth>
+        </RuntimeConfigProvider>
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+Injection des fournisseurs tRPC et React Query.
+
+</Drawer>
+
+### Infrastructure de jeu
+
+Créons le projet CDK :
+
+<RunGenerator generator="ts#infra" requiredParameters={{name:"infra"}} noInteractive />
+
+<Drawer title="Fichiers mis à jour par ts#infra" trigger="Cliquez ici pour examiner ces fichiers en détail.">
+Structure générée :
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - core/
+          - cfn-guard-rules/
+            - *.guard
+          - cfn-guard.ts
+          - index.ts
+  - infra
+    - src/
+      - stacks/
+        - **application-stack.ts** ressources CDK
+      - index.ts
+      - **main.ts** point d'entrée CDK
+    - cdk.json
+    - project.json
+</FileTree>
+
+```ts
+// packages/infra/src/main.ts
+import { ApplicationStack } from './stacks/application-stack.js';
+import {
+  App,
+  CfnGuardValidator,
+  RuleSet,
+} from ':dungeon-adventure/common-constructs';
+
+const app = new App({
+  policyValidationBeta1: [new CfnGuardValidator(RuleSet.AWS_PROTOTYPING)],
+});
+
+new ApplicationStack(app, 'dungeon-adventure-infra-sandbox', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  crossRegionReferences: true,
+});
+
+app.synth();
+```
+
+Validation des templates avec [`cfn-guard`](https://github.com/cdklabs/cdk-validator-cfnguard).
+
+<Aside type="tip">
+Pour supprimer des règles sur des ressources :
+
+###### Suppression sur une construction
+```typescript
+import { suppressRule } from ':dungeon-adventure/common-constructs';
+suppressRule(construct, 'RULE_NAME');
+```
+
+###### Suppression conditionnelle
+```typescript
+suppressRule(construct, 'RULE_NAME', (construct) => construct instanceof Bucket);
+```
+</Aside>
+
+```ts
+// packages/infra/src/stacks/application-stack.ts
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // Implémentation des ressources CDK ici
+  }
+}
+```
+
+Structure de base de la stack CDK.
+
+</Drawer>
+
+#### Mise à jour de l'infrastructure
+
+Modifions `application-stack.ts` pour instancier nos constructions :
+
+```diff lang="ts"
++import {
++  GameApi,
++  GameUI,
++  StoryApi,
++  UserIdentity,
++} from ':dungeon-adventure/common-constructs';
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+-    // Code de la stack ici
++    const userIdentity = new UserIdentity(this, 'UserIdentity');
++
++    const gameApi = new GameApi(this, 'GameApi');
++    const storyApi = new StoryApi(this, 'StoryApi');
++
++    [storyApi, gameApi].forEach((api) =>
++      api.grantInvokeAccess(userIdentity.identityPool.authenticatedRole),
++    );
++
++    new GameUI(this, 'GameUI');
+  }
+}
+```
+
+### Construction du code
+
+<Drawer title="Commandes Nx" trigger="Construisons maintenant notre code">
+###### Cibles multiples vs unique
+
+La commande `run-many` exécute une tâche sur plusieurs projets (`--all` pour tous). Les dépendances sont respectées.
+
+Pour une cible unique :
+
+<NxCommands commands={['run @dungeon-adventure/infra:build']} />
+
+###### Visualisation des dépendances
+
+<NxCommands commands={['graph']} />
+<br/>
+
+<Image src={nxGraphPng} alt="nx-graph.png" width="800" height="600" />
+
+###### Cache
+
+Ajoutez `--skip-nx-cache` pour ignorer le cache :
+
+<NxCommands commands={['run @dungeon-adventure/infra:build --skip-nx-cache']} />
+
+Effacer le cache :
+
+<NxCommands commands={['reset']} />
+
+</Drawer>
+
+<NxCommands commands={['run-many --target build --all']} />
+
+Vous devriez voir :
+
+```bash
+ NX   The workspace is out of sync
+
+[@nx/js:typescript-sync]: Certains fichiers de configuration TypeScript manquent des références de projet.
+
+? Souhaitez-vous synchroniser les modifications pour mettre à jour l'espace de travail ? …
+Oui, synchroniser et exécuter les tâches
+Non, exécuter sans synchroniser
+```
+
+Sélectionnez **Oui** pour résoudre les erreurs d'import.
+
+<Aside type="tip">
+Corriger les erreurs de lint :
+
+<NxCommands commands={['run-many --target lint --configuration=fix --all']} />
+</Aside>
+
+<Aside type="caution" title="Erreur de build Windows">
+<Drawer trigger="Si vous êtes sous Windows et rencontrez une erreur, cliquez ici." title="Erreur Windows">
+Désactivez `cfn-guard` dans `packages/infra/src/main.ts` :
+
+```diff lang="ts"
+import { ApplicationStack } from './stacks/application-stack.js';
+import {
+   App,
+-  CfnGuardValidator,
+-  RuleSet,
+} from ':dungeon-adventure/common-constructs';
+-
+-const app = new App({
+-  policyValidationBeta1: [new CfnGuardValidator(RuleSet.AWS_PROTOTYPING)],
+-});
++const app = new App();
+...
+```
+</Drawer>
+</Aside>
+
+Les artefacts sont dans `dist/`. Supprimez ce dossier pour nettoyer.
+
+Félicitations ! Vous avez créé tous les sous-projets nécessaires pour développer Dungeon Adventure. 🎉🎉🎉

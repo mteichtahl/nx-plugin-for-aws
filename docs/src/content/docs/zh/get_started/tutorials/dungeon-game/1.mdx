@@ -1,0 +1,919 @@
+---
+title: "AI地牢游戏"
+description: "使用 @aws/nx-plugin 构建人工智能驱动的地牢冒险游戏的演练。"
+---
+
+import { Aside, Code, FileTree, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import Link from '@components/link.astro';
+import Drawer from '@components/drawer.astro';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import InstallCommand from '@components/install-command.astro';
+import CreateNxWorkspaceCommand from '@components/create-nx-workspace-command.astro';
+import dungeonAdventureArchitecturePng from '@assets/dungeon-game-architecture.png'
+import dungeonAdventureErPng from '@assets/dungeon-adventure-er.png'
+import baselineWebsitePng from '@assets/baseline-website.png'
+import baselineGamePng from '@assets/baseline-game.png'
+import nxGraphPng from '@assets/nx-graph.png'
+import gameSelectPng from '@assets/game-select.png'
+import gameConversationPng from '@assets/game-conversation.png'
+
+## 模块一：Monorepo 配置
+
+我们将从创建一个新的 monorepo 开始。在您选择的目录下运行以下命令：
+
+<CreateNxWorkspaceCommand workspace="dungeon-adventure" />
+
+这将在 `dungeon-adventure` 目录中设置一个 NX monorepo，您可以在 vscode 中打开它。其结构应如下所示：
+
+<FileTree>
+- .nx/
+- .vscode/
+- node_modules/
+- packages/ 您的子项目将存放在此处
+- .gitignore
+- .npmrc
+- .prettierignore
+- .prettierrc
+- nx.json 配置 Nx CLI 和 monorepo 默认值
+- package.json 所有 Node 依赖在此定义
+- pnpm-lock.yaml 或 bun.lock、yarn.lock、package-lock.json（取决于包管理器）
+- pnpm-workspace.yaml（如果使用 pnpm）
+- README.md
+- tsconfig.base.json 所有基于 Node 的子项目继承此配置
+- tsconfig.json
+</FileTree>
+
+为了将 `@aws/nx-plugin` 的组件添加到 monorepo 中，我们需要将其作为开发依赖项安装。在 `dungeon-adventure` monorepo 的根目录下运行以下命令：
+
+<InstallCommand dev pkg="@aws/nx-plugin" />
+
+现在我们可以使用 `@aws/nx-plugin` 开始创建不同的子项目了。
+
+<Aside type="tip">最佳实践是在运行任何生成器之前确保所有未暂存的文件已提交到 Git。这样您可以通过 `git diff` 查看生成器运行后的更改。</Aside>
+
+### 游戏 API
+
+首先创建我们的游戏 API。为此，按照以下步骤创建一个名为 `GameApi` 的 tRPC API：
+
+<RunGenerator generator="ts#trpc-api" requiredParameters={{apiName:"GameApi"}} noInteractive />
+
+<br />
+
+您应该看到文件树中出现了一些新文件。
+
+<Aside>
+根目录的 `package.json` 现在配置了 `"type": "module"`，这意味着所有由 `@aws/nx-plugin` 提供的基于 Node 的子项目默认使用 ESM 模块类型。有关处理 TypeScript 项目的更多细节，请参考 <Link path="guides/typescript-project">ts#project 指南</Link>。
+</Aside>
+
+<Drawer title="ts#trpc-api 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `ts#trpc-api` 生成器生成的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/ 应用特定的 CDK 构造
+          - http-apis/
+            - **game-api.ts** 创建 tRPC API 的 CDK 构造
+            - index.ts
+            - ...
+          - index.ts
+        - core/ 通用 CDK 构造
+          - http-api.ts HTTP API 的基础 CDK 构造
+          - index.ts
+          - runtime-config.ts
+        - index.ts
+      - project.json
+      - ...
+    - types/ 共享类型
+      - src/
+        - index.ts
+        - runtime-config.ts 由 CDK 和前端共同使用的接口定义
+      - project.json
+      - ...
+  - game-api/
+    - backend/ tRPC 实现代码
+      - src/
+        - client/ 通常用于 TS 机器间调用的客户端
+          - index.ts
+          - sigv4.ts
+        - middleware/ Powertools 工具集
+          - error.ts
+          - index.ts
+          - logger.ts
+          - metrics.ts
+          - tracer.ts
+        - procedures/ API 方法/路由的具体实现
+          - **echo.ts**
+        - index.ts
+        - init.ts 设置上下文和中间件
+        - local-server.ts 本地运行 tRPC 服务器时使用
+        - **router.ts** Lambda 处理程序的入口点，定义所有方法
+      - project.json
+      - ...
+    - schema/
+      - src/
+        - procedures/
+          - **echo.ts**
+        - index.ts
+      - project.json
+      - ...
+- eslint.config.mjs
+- vitest.workspace.ts
+</FileTree>
+
+查看几个关键文件：
+
+```ts {5,12}
+// packages/game-api/backend/src/router.ts
+import {
+  awsLambdaRequestHandler,
+  CreateAWSLambdaContextOptions,
+} from '@trpc/server/adapters/aws-lambda';
+import { echo } from './procedures/echo.js';
+import { t } from './init.js';
+import { APIGatewayProxyEventV2WithIAMAuthorizer } from 'aws-lambda';
+
+export const router = t.router;
+
+export const appRouter = router({
+  echo,
+});
+
+export const handler = awsLambdaRequestHandler({
+  router: appRouter,
+  createContext: (
+    ctx: CreateAWSLambdaContextOptions<APIGatewayProxyEventV2WithIAMAuthorizer>,
+  ) => ctx,
+});
+
+export type AppRouter = typeof appRouter;
+```
+路由器定义了 tRPC API 的入口点，是声明所有 API 方法的地方。如上所示，我们有一个名为 `echo` 的方法，其实现位于 `./procedures/echo.ts` 文件中。
+
+```ts {2-5}
+// packages/game-api/backend/src/procedures/echo.ts
+import { publicProcedure } from '../init.js';
+import {
+  EchoInputSchema,
+  EchoOutputSchema,
+} from ':dungeon-adventure/game-api-schema';
+
+export const echo = publicProcedure
+  .input(EchoInputSchema)
+  .output(EchoOutputSchema)
+  .query((opts) => ({ result: opts.input.message }));
+```
+
+该文件是 `echo` 方法的实现，通过声明输入和输出数据结构进行强类型化。它从 `:dungeon-adventure/game-api-schema` 项目中导入这些定义，这是 schema 项目的 [别名](https://www.typescriptlang.org/tsconfig/paths.html)。
+
+<Aside type="tip">如果在 IDE 中看到导入错误，这是因为后端尚未在其 tsconfig.json 中设置 TypeScript 引用。Nx 已配置为在运行构建/编译时 [动态创建](https://nx.dev/nx-api/js/generators/typescript-sync) 这些引用，或手动运行 `nx sync` 命令。更多信息请参考 <Link path="guides/typescript-project#importing-your-library-code-in-other-projects">TypeScript 指南</Link>。</Aside>
+
+```ts
+// packages/game-api/schema/src/procedures/echo.ts
+import { z } from 'zod';
+
+export const EchoInputSchema = z.object({
+  message: z.string(),
+});
+
+export type IEchoInput = z.TypeOf<typeof EchoInputSchema>;
+
+export const EchoOutputSchema = z.object({
+  result: z.string(),
+});
+
+export type IEchoOutput = z.TypeOf<typeof EchoOutputSchema>;
+```
+
+所有 tRPC schema 定义均使用 [Zod](https://zod.dev/) 定义，并通过 `z.TypeOf` 语法导出为 TypeScript 类型。
+
+```ts
+// packages/common/constructs/src/app/http-apis/game-api.ts
+import { Construct } from 'constructs';
+import * as url from 'url';
+import { HttpApi } from '../../core/http-api.js';
+import { HttpIamAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+
+export class GameApi extends HttpApi {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      defaultAuthorizer: new HttpIamAuthorizer(),
+      apiName: 'GameApi',
+      runtime: Runtime.NODEJS_LATEST,
+      handler: 'index.handler',
+      handlerFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/game-api/backend/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+这是定义 GameApi 的 CDK 构造。如您所见，它已配置处理程序文件路径指向 tRPC 后端实现的生成包。这意味着在 `cdk synth` 时不会发生捆绑（与使用 [NodeJsFunction](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_lambda_nodejs.NodejsFunction.html) 不同），因为我们已在后端项目的构建目标中完成了捆绑。
+
+</Drawer>
+
+### 故事 API
+
+现在创建我们的故事 API。按照以下步骤创建一个名为 `StoryApi` 的 Fast API：
+
+<RunGenerator generator="py#fast-api" requiredParameters={{name:"StoryApi"}} noInteractive />
+
+您应该看到文件树中出现了一些新文件。
+<Drawer title="py#fast-api 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `py#fast-api` 生成器生成的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- .venv/ monorepo 的单一虚拟环境
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/ 应用特定的 CDK 构造
+          - http-apis/
+            - **story-api.ts** 创建 Fast API 的 CDK 构造
+            - index.ts 更新以导出新的 story-api
+      - project.json 更新以添加对 story_api 的构建依赖
+    - types/ 共享类型
+      - src/
+        - **runtime-config.ts** 更新以添加 StoryApi
+  - story_api/
+    - story_api/ Python 模块
+      - init.py 设置 Powertools、FastAPI 和中间件
+      - **main.py** 包含所有路由的 Lambda 入口点
+    - tests/
+    - .python-version
+    - project.json
+    - pyproject.toml
+    - project.json
+- .python-version 固定的 uv Python 版本
+- pyproject.toml
+- uv.lock
+</FileTree>
+
+```ts
+// packages/common/constructs/src/app/http-apis/story-api.ts
+import { Construct } from 'constructs';
+import * as url from 'url';
+import { HttpApi } from '../../core/http-api.js';
+import { HttpIamAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+
+export class StoryApi extends HttpApi {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      defaultAuthorizer: new HttpIamAuthorizer(),
+      apiName: 'StoryApi',
+      runtime: Runtime.PYTHON_3_12,
+      handler: 'story_api.main.handler',
+      handlerFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/story_api/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+这是定义 StoryApi 的 CDK 构造。如您所见，它已配置处理程序文件路径指向 Fast API 后端实现的生成包。这意味着在 `cdk synth` 时不会发生捆绑（与使用 [PythonFunction](https://docs.aws.amazon.com/cdk/api/v2/docs/@aws-cdk_aws-lambda-python-alpha.PythonFunction.html) 不同），因为我们已在后端项目的构建目标中完成了捆绑。
+
+```diff lang="ts"
+// packages/common/types/src/runtime-config.ts
+export type ApiUrl = string;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
+export interface IRuntimeConfig {
+  httpApis: {
+    GameApi: ApiUrl;
++    StoryApi: ApiUrl;
+  };
+}
+```
+
+这是生成器执行 AST 转换的示例，保留所有现有代码并进行更新。您可以看到 `StoryApi` 被添加到 `IRuntimeConfig` 定义中，这意味着当最终被前端使用时，将强制类型安全！
+
+```py
+// packages/story_api/story_api/main.py
+from .init import app, lambda_handler, tracer
+
+handler = lambda_handler
+
+@app.get("/")
+@tracer.capture_method
+def read_root():
+    return {"Hello": "World"}
+```
+
+这是定义所有 API 方法的地方。如您所见，我们有一个映射到 `GET /` 路由的 `read_root` 方法。您可以使用 [Pydantic](https://docs.pydantic.dev/latest/) 声明方法输入和输出以确保类型安全。
+
+</Drawer>
+
+### 游戏 UI：网站
+
+现在创建用于与游戏交互的 UI。按照以下步骤创建一个名为 `GameUI` 的网站：
+
+<RunGenerator generator="ts#cloudscape-website" requiredParameters={{name:"GameUI"}} noInteractive />
+
+您应该看到文件树中出现了一些新文件。
+
+<Drawer title="ts#cloudscape-website 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `ts#cloudscape-website` 生成器生成的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - app/ 应用特定的 CDK 构造
+          - static-websites/
+            - **game-ui.ts** 创建 Game UI 的 CDK 构造
+        - core/
+          - static-website.ts 通用的静态网站构造
+  - game-ui/
+    - public/
+    - src/
+      - components/
+        - AppLayout/
+          - index.ts 整体页面布局：页头、页脚、侧边栏等
+          - navitems.ts 侧边栏导航项
+      - hooks/
+        - useAppLayout.tsx 允许动态设置通知、页面样式等
+      - routes/ 基于文件的 @tanstack/react-router 路由
+        - index.tsx 根 '/' 页面重定向到 '/welcome'
+        - __root.tsx 所有页面使用此组件作为基础
+        - welcome/
+          - **index.tsx**
+        - config.ts
+        - **main.tsx** React 入口点
+        - routeTree.gen.ts 由 @tanstack/react-router 自动更新
+        - styles.css
+    - index.html
+    - project.json
+    - vite.config.ts
+    - ...
+</FileTree>
+
+```ts
+// packages/common/constructs/src/app/static-websites/game-ui.ts
+import * as url from 'url';
+import { Construct } from 'constructs';
+import { StaticWebsite } from '../../core/index.js';
+
+export class GameUI extends StaticWebsite {
+  constructor(scope: Construct, id: string) {
+    super(scope, id, {
+      websiteFilePath: url.fileURLToPath(
+        new URL(
+          '../../../../../../dist/packages/game-ui/bundle',
+          import.meta.url,
+        ),
+      ),
+    });
+  }
+}
+```
+
+这是定义 GameUI 的 CDK 构造。如您所见，它已配置文件路径指向基于 Vite 的 UI 的生成包。这意味着在 `build` 时，捆绑在 game-ui 项目的构建目标中完成，其输出在此处使用。
+
+```tsx
+// packages/game-ui/src/main.tsx
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+
+import '@cloudscape-design/global-styles/index.css';
+
+const router = createRouter({ routeTree });
+
+// 为类型安全注册路由器实例
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+这是挂载 React 的入口点。如所示，它最初仅配置基于文件的 [@tanstack/react-router](https://tanstack.com/router/v1/docs/framework/react/routing/file-based-routing)。这意味着只要开发服务器运行，您就可以在 `routes` 文件夹中创建文件，`@tanstack/react-router` 将为您创建样板文件设置并更新 `routeTree.gen.ts` 文件。该文件以类型安全的方式维护所有路由，因此在使用 `<Link>` 时，`to` 选项仅显示有效路由。更多信息请参考 [@tanstack/react-router 文档](https://tanstack.com/router/v1/docs/framework/react/quick-start)。
+
+```tsx
+// packages/game-ui/src/routes/welcome/index.tsx
+import {
+  ContentLayout,
+  Header,
+  SpaceBetween,
+  Container,
+} from '@cloudscape-design/components';
+import { createFileRoute } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/welcome/')({
+  component: RouteComponent,
+});
+
+function RouteComponent() {
+  return (
+    <ContentLayout header={<Header>欢迎</Header>}>
+      <SpaceBetween size="l">
+        <Container>欢迎来到您的新 Cloudscape 网站！</Container>
+      </SpaceBetween>
+    </ContentLayout>
+  );
+}
+```
+
+当导航到 `/welcome` 路由时，将渲染此组件。`@tanstack/react-router` 将在您创建/移动此文件时管理 `Route`（只要开发服务器运行）。这将在本教程的后续部分中展示。
+
+</Drawer>
+
+### 游戏 UI：身份验证
+
+现在通过 Amazon Cognito 配置我们的 Game UI 要求身份验证访问。按照以下步骤操作：
+
+<RunGenerator generator="ts#cloudscape-website#auth" requiredParameters={{cognitoDomain:"game-ui", project:"@dungeon-adventure/game-ui", allowSignup:true}} noInteractive />
+
+您应该看到文件树中出现/更改了一些新文件。
+
+<Drawer title="ts#cloudscape-website#auth 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `ts#cloudscape-website#auth` 生成器生成/更新的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - core/
+          - user-identity.ts 创建用户/身份池的 CDK 构造
+    - types/
+      - src/
+        - runtime-config.ts 更新以添加 cognitoProps
+  - game-ui/
+    - src/
+      - components/
+        - AppLayout/
+          - index.tsx 添加已登录用户/注销到页头
+        - CognitoAuth/
+          - index.ts 管理 Cognito 登录
+        - RuntimeConfig/
+          - index.tsx 获取 `runtime-config.json` 并通过上下文提供给子组件
+      - hooks/
+        - useRuntimeConfig.tsx
+      - **main.tsx** 更新以添加 Cognito
+</FileTree>
+
+```diff lang="tsx"
+// packages/game-ui/src/main.tsx
++import CognitoAuth from './components/CognitoAuth';
++import RuntimeConfigProvider from './components/RuntimeConfig';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+import '@cloudscape-design/global-styles/index.css';
+const router = createRouter({ routeTree });
+// 为类型安全注册路由器实例
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
++        <RuntimeConfigProvider>
++          <CognitoAuth>
+            <RouterProvider router={router} />
++          </CognitoAuth>
++        </RuntimeConfigProvider>
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+通过 AST 转换将 `RuntimeConfigProvider` 和 `CognitoAuth` 组件添加到 `main.tsx` 文件。这允许 `CognitoAuth` 组件通过获取包含所需 Cognito 连接配置的 `runtime-config.json` 来与 Amazon Cognito 进行身份验证，从而正确调用后端。
+
+</Drawer>
+
+### 游戏 UI：连接故事 API
+
+现在配置我们的 Game UI 连接到之前创建的故事 API：
+
+<RunGenerator generator="api-connection" requiredParameters={{sourceProject:"@dungeon-adventure/game-ui", targetProject:"dungeon_adventure.story_api"}} noInteractive />
+
+您应该看到文件树中出现/更改了一些新文件。
+
+<Drawer title="UI -> FastAPI api-connection 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `api-connection` 生成器生成/更新的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - game-ui/
+    - src/
+      - hooks/
+        - useSigV4.tsx 供 StoryApi 用于签名请求
+        - useStoryApiClient.tsx 构建 StoryApi 客户端的钩子
+        - useStoryApi.tsx 使用 TanStack Query 与 StoryApi 交互的钩子
+      - components/
+        - QueryClientProvider.tsx TanStack Query 客户端提供者
+        - StoryApiProvider.tsx StoryApi TanStack Query 钩子的提供者
+      - main.tsx 注入 QueryClientProvider 和 StoryApiProvider
+    - .gitignore 忽略生成的客户端文件
+    - project.json 更新以添加生成 openapi 钩子的目标
+    - ...
+  - story_api/
+    - scripts/
+      - generate_open_api.py
+    - project.json 更新以生成 openapi.json 文件
+</FileTree>
+
+```tsx {1,12-15}
+// packages/game-ui/src/hooks/useStoryApiClient.tsx
+import { StoryApi } from '../generated/story-api/client.gen';
+import { useSigV4 } from './useSigV4';
+import { useRuntimeConfig } from './useRuntimeConfig';
+import { useMemo } from 'react';
+
+export const useStoryApi = (): StoryApi => {
+  const runtimeConfig = useRuntimeConfig();
+  const apiUrl = runtimeConfig.httpApis.StoryApi;
+  const sigv4Client = useSigV4();
+  return useMemo(
+    () =>
+      new StoryApi({
+        url: apiUrl,
+        fetch: sigv4Client,
+      }),
+    [apiUrl, sigv4Client],
+  );
+};
+```
+
+此钩子可用于向 `StoryApi` 发起经过身份验证的 API 请求。如实现所示，它使用在构建时生成的 `StoryApi`，因此在构建代码前 IDE 中会显示错误。有关客户端生成或如何消费 API 的更多细节，请参考 <Link path="guides/api-connection/react-fastapi">React 到 FastAPI 指南</Link>。
+
+```tsx
+// packages/game-ui/src/components/StoryApiProvider.tsx
+import { createContext, FC, PropsWithChildren, useMemo } from 'react';
+import { useStoryApiClient } from '../hooks/useStoryApiClient';
+import { StoryApiOptionsProxy } from '../generated/story-api/options-proxy.gen';
+
+export const StoryApiContext = createContext<StoryApiOptionsProxy | undefined>(
+  undefined,
+);
+
+export const StoryApiProvider: FC<PropsWithChildren> = ({ children }) => {
+  const client = useStoryApiClient();
+  const optionsProxy = useMemo(
+    () => new StoryApiOptionsProxy({ client }),
+    [client],
+  );
+
+  return (
+    <StoryApiContext.Provider value={optionsProxy}>
+      {children}
+    </StoryApiContext.Provider>
+  );
+};
+
+export default StoryApiProvider;
+```
+
+上述提供者组件使用 `useStoryApiClient` 钩子，并实例化 `StoryApiOptionsProxy`，用于构建 TanStack Query 钩子的选项。您可以使用相应的钩子 `useStoryApi` 访问此选项代理，提供与您的 FastAPI 交互的一致方式。
+
+由于 `useStoryApiClient` 为我们的流式 API 提供了异步迭代器，在本教程中我们将直接使用原生客户端。
+
+<Aside type="caution">
+切勿手动修改 `src/generated/story-api/*.gen.ts` 文件，因为它们会在每次构建 API 时重新生成。
+</Aside>
+
+</Drawer>
+
+### 游戏 UI：连接游戏 API
+
+现在配置我们的 Game UI 连接到之前创建的游戏 API：
+
+<RunGenerator generator="api-connection" requiredParameters={{sourceProject:"@dungeon-adventure/game-ui", targetProject:"@dungeon-adventure/game-api-backend"}} noInteractive />
+
+您应该看到文件树中出现/更改了一些新文件。
+
+<Drawer title="UI -> tRPC api-connection 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `api-connection` 生成器生成/更新的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - game-ui/
+    - src/
+      - components/
+        - TrpcClients/
+          - index.tsx
+          - TrpcApis.tsx 所有配置的 tRPC API
+          - TrpcClientProviders.tsx 为每个 tRPC API 创建客户端提供者
+          - TrpcProvider.tsx
+      - hooks/
+        - **useGameApi.tsx** 调用 GameApi 的钩子
+      - **main.tsx** 注入 trpc 客户端提供者
+- package.json
+</FileTree>
+
+```tsx
+// packages/game-ui/src/hooks/useGameApi.tsx
+import { TrpcApis } from '../components/TrpcClients';
+
+export const useGameApi = () => TrpcApis.GameApi.useTRPC();
+```
+
+此钩子使用 tRPC 的最新 [React Query 集成](https://trpc.io/blog/introducing-tanstack-react-query-client)，允许用户直接与 `@tanstack/react-query` 交互而无需额外抽象层。有关如何调用 tRPC API 的示例，请参考 <Link path="guides/api-connection/react-trpc#using-the-generated-code">使用 tRPC 钩子指南</Link>。
+
+<Aside>
+`useGameApi` 钩子与 `useStoryApi` 钩子的不同之处在于，它不需要构建即可反映更改，这得益于 tRPC 使用的 [TypeScript 推断](https://trpc.io/docs/concepts)。这使得开发者对后端的更改能即时反映到前端！
+</Aside>
+
+```diff lang="tsx"
+// packages/game-ui/src/main.tsx
++import TrpcClientProviders from './components/TrpcClients';
++import QueryClientProvider from './components/QueryClientProvider';
+import CognitoAuth from './components/CognitoAuth';
+import RuntimeConfigProvider from './components/RuntimeConfig';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@cloudscape-design/components/i18n';
+import messages from '@cloudscape-design/components/i18n/messages/all.en';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+import '@cloudscape-design/global-styles/index.css';
+const router = createRouter({ routeTree });
+// 为类型安全注册路由器实例
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+const root = document.getElementById('root');
+root &&
+  createRoot(root).render(
+    <React.StrictMode>
+      <I18nProvider locale="en" messages={[messages]}>
+        <RuntimeConfigProvider>
+          <CognitoAuth>
++            <QueryClientProvider>
++              <TrpcClientProviders>
+                <RouterProvider router={router} />
++              </TrpcClientProviders>
++            </QueryClientProvider>
+          </CognitoAuth>
+        </RuntimeConfigProvider>
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+```
+
+通过 AST 转换更新 `main.tsx` 文件以注入 tRPC 提供者。
+
+</Drawer>
+
+### 游戏 UI：基础设施
+
+最后需要创建 CDK 基础设施的子项目。按照以下步骤操作：
+
+<RunGenerator generator="ts#infra" requiredParameters={{name:"infra"}} noInteractive />
+
+您应该看到文件树中出现/更改了一些新文件。
+
+<Drawer title="ts#infra 更新文件" trigger="点击此处查看这些文件的详细信息。">
+以下是 `ts#infra` 生成器生成/更新的所有文件列表。我们将检查文件树中突出显示的一些关键文件：
+<FileTree>
+- packages/
+  - common/
+    - constructs/
+      - src/
+        - core/
+          - cfn-guard-rules/
+            - *.guard
+          - cfn-guard.ts
+          - index.ts
+  - infra
+    - src/
+      - stacks/
+        - **application-stack.ts** 此处定义 CDK 资源
+      - index.ts
+      - **main.ts** 定义所有堆栈的入口点
+    - cdk.json
+    - project.json
+    - ...
+  - package.json
+  - tsconfig.json 添加引用
+  - tsconfig.base.json 添加别名
+</FileTree>
+
+```ts
+// packages/infra/src/main.ts
+import { ApplicationStack } from './stacks/application-stack.js';
+import {
+  App,
+  CfnGuardValidator,
+  RuleSet,
+} from ':dungeon-adventure/common-constructs';
+
+const app = new App({
+  policyValidationBeta1: [new CfnGuardValidator(RuleSet.AWS_PROTOTYPING)],
+});
+
+// 使用此部署您自己的沙盒环境（假设 CLI 凭证已配置）
+new ApplicationStack(app, 'dungeon-adventure-infra-sandbox', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  crossRegionReferences: true,
+});
+
+app.synth();
+```
+
+这是 CDK 应用程序的入口点。
+
+它配置为使用 [`cfn-guard`](https://github.com/cdklabs/cdk-validator-cfnguard) 根据配置的规则集运行基础设施验证。这会在合成后执行。
+
+<Aside type="tip">
+在某些情况下，您可能希望抑制资源上的特定规则。有两种方法可以实现：
+
+###### 在给定构造上抑制规则
+
+```typescript
+import { suppressRule } from ':dungeon-adventure/common-constructs';
+
+...
+// 抑制给定构造上的 RULE_NAME
+suppressRule(construct, 'RULE_NAME');
+```
+
+###### 在子构造上抑制规则
+
+```typescript
+import { suppressRule } from ':dungeon-adventure/common-constructs';
+
+...
+// 如果构造是 Bucket 的实例，则抑制构造或其子构造上的 RULE_NAME
+suppressRule(construct, 'RULE_NAME', (construct) => construct instanceof Bucket);
+```
+</Aside>
+
+```ts
+// packages/infra/src/stacks/application-stack.ts
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // 定义堆栈的代码在此处
+  }
+}
+```
+
+这是我们实例化 CDK 构造以构建地牢冒险游戏的地方。
+
+</Drawer>
+
+#### 更新基础设施
+
+让我们更新 `packages/infra/src/stacks/application-stack.ts` 以实例化一些已生成的构造：
+
+```diff lang="ts"
++import {
++  GameApi,
++  GameUI,
++  StoryApi,
++  UserIdentity,
++} from ':dungeon-adventure/common-constructs';
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+-    // 定义堆栈的代码在此处
++    const userIdentity = new UserIdentity(this, 'UserIdentity');
++
++    const gameApi = new GameApi(this, 'GameApi');
++    const storyApi = new StoryApi(this, 'StoryApi');
++
++    // 授予已验证角色调用 API 的权限
++    [storyApi, gameApi].forEach((api) =>
++      api.grantInvokeAccess(userIdentity.identityPool.authenticatedRole),
++    );
++
++    // 确保最后实例化，以便自动配置 runtime-config.json
++    new GameUI(this, 'GameUI');
+  }
+}
+```
+
+### 构建代码
+
+<Drawer title="Nx 命令" trigger="现在是我们首次构建代码的时候了">
+###### 单目标 vs 多目标
+
+`run-many` 命令将在多个列出的子项目上运行目标（`--all` 将针对所有项目）。它将确保依赖项按正确顺序执行。
+
+您还可以通过直接在项目上运行目标来触发单个项目目标的构建（或任何其他任务）。例如，如果我们想构建 `@dungeon-adventure/infra` 项目，可以运行以下命令：
+
+<NxCommands commands={['run @dungeon-adventure/infra:build']} />
+###### 可视化依赖关系
+
+您还可以通过以下命令可视化依赖关系：
+
+<NxCommands commands={['graph']} />
+<br/>
+
+<Image src={nxGraphPng} alt="nx-graph.png" width="800" height="600" />
+
+###### 缓存
+
+Nx 依赖 [缓存](https://nx.dev/concepts/how-caching-works) 以便重用之前构建的产物来加速开发。需要一些配置才能正常工作，有时您可能希望执行 **不使用缓存** 的构建。为此，只需在命令后追加 `--skip-nx-cache` 参数。例如：
+
+<NxCommands commands={['run @dungeon-adventure/infra:build --skip-nx-cache']} />
+如果出于某种原因需要清除缓存（存储在 `.nx` 文件夹中），可以运行以下命令：
+
+<NxCommands commands={['reset']} />
+
+</Drawer>
+
+<NxCommands commands={['run-many --target build --all']} />
+
+您应该会看到以下提示：
+
+```bash
+ NX   工作区不同步
+
+[@nx/js:typescript-sync]: 某些 TypeScript 配置文件缺少对其依赖项目的项目引用，或包含过时的项目引用。
+
+这将在 CI 中导致错误。
+
+? 是否要同步识别到的更改以使工作区保持最新？ …
+是，同步更改并运行任务
+否，不同步直接运行任务
+```
+
+此消息表示 NX 检测到一些可以自动更新的文件。在本例中，它指的是缺少对相关项目的 Typescript 引用的 `tsconfig.json` 文件。选择 **是，同步更改并运行任务** 选项继续。您应该注意到所有 IDE 相关的导入错误自动解决，因为同步生成器会自动添加缺失的 Typescript 引用！
+
+<Aside type="tip">
+如果遇到任何 lint 错误，可以运行以下命令自动修复：
+
+<NxCommands commands={['run-many --target lint --configuration=fix --all']} />
+</Aside>
+
+<Aside type="caution" title="Windows 构建失败">
+<Drawer trigger="如果您在 Windows 上遇到构建错误，请点击此处。" title="Windows 构建失败">
+如果 `@dungeon-adventure/infra` 项目遇到构建/合成错误，这是预期的，因为用于 `cfn-guard` 的库当前不支持 Windows。有功能请求在跟踪此问题，但在此期间我们可以通过修改 `packages/infra/src/main.ts` 文件来禁用 `cfn-guard`：
+
+```diff lang="ts"
+// packages/infra/src/main.ts
+import { ApplicationStack } from './stacks/application-stack.js';
+import {
+   App,
+-  CfnGuardValidator,
+-  RuleSet,
+} from ':dungeon-adventure/common-constructs';
+-
+-const app = new App({
+-  policyValidationBeta1: [new CfnGuardValidator(RuleSet.AWS_PROTOTYPING)],
+-});
++const app = new App();
+
+// 使用此部署您自己的沙盒环境（假设 CLI 凭证已配置）
+new ApplicationStack(app, 'dungeon-adventure-infra-sandbox', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  crossRegionReferences: true,
+});
+
+app.synth();
+```
+</Drawer>
+</Aside>
+
+所有构建产物现在可在 monorepo 根目录的 `dist/` 文件夹中找到。这是使用 `@aws/nx-plugin` 生成的项目时的标准做法，因为它不会用生成的文件污染您的文件树。如果您想清理文件，只需删除 `dist/` 文件夹，无需担心生成的文件散落各处。
+
+恭喜！您已创建了开始实现地牢冒险游戏核心所需的所有子项目。🎉🎉🎉

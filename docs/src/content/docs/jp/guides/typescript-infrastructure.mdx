@@ -1,0 +1,153 @@
+---
+title: "CDKインフラストラクチャ"
+description: "CDKインフラストラクチャのリファレンスドキュメント"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '@components/run-generator.astro';
+import Link from '@components/link.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import NxCommands from '@components/nx-commands.astro';
+import schema from '../../../../../../packages/nx-plugin/src/infra/app/schema.json';
+
+[AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/home.html) はAWS CloudFormationを通じてクラウドインフラをコードで定義・プロビジョニングするフレームワークです。
+
+TypeScriptインフラジェネレーターはTypeScriptで記述されたAWS CDKインフラアプリケーションを作成します。生成されたアプリケーションには[CFN Guard](https://docs.aws.amazon.com/cfn-guard/latest/ug/what-is-guard.html)チェックによるセキュリティベストプラクティスが含まれます。
+
+## 使用方法
+
+### インフラプロジェクトの生成
+
+新しいインフラプロジェクトを2つの方法で生成できます:
+
+<RunGenerator generator="ts#infra" />
+
+### オプション
+
+<GeneratorParameters schema={schema} />
+
+## ジェネレーター出力
+
+ジェネレーターは`<directory>/<name>`ディレクトリに以下のプロジェクト構造を作成します:
+
+<FileTree>
+
+  - src
+    - main.ts CDKスタックをインスタンス化するアプリケーションエントリーポイント
+    - stacks CDKスタック定義
+      - application-stack.ts メインアプリケーションスタック
+  - cdk.json CDK設定ファイル
+  - project.json プロジェクト設定とビルドターゲット
+
+</FileTree>
+
+:::tip
+インフラはTypeScriptプロジェクトですので、一般的な使用方法の詳細については<Link path="guides/typescript-project">TypeScriptプロジェクトドキュメント</Link>を参照してください。
+:::
+
+## CDKインフラの実装
+
+`src/stacks/application-stack.ts`内でCDKインフラの記述を開始できます。例:
+
+```ts title="src/stacks/application-stack.ts" {9-10}
+import * as cdk from 'aws-cdk-lib';
+import { Bucket } from 'aws-cdk-lib/aws-s3'
+import { Construct } from 'constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // インフラをここに記述
+    new Bucket(this, 'MyBucket');
+  }
+}
+```
+
+### APIインフラ
+
+<Link path="guides/trpc">tRPC API</Link>または<Link path="guides/fastapi">FastAPI</Link>ジェネレーターを使用してAPIを作成した場合、`packages/common/constructs`にデプロイ用のコンストラクトが既に存在します。
+
+例えば`my-api`というtRPC APIを作成した場合、コンストラクトをインポートしてインスタンス化するだけで必要なインフラを追加できます:
+
+```ts title="src/stacks/application-stack.ts" {3, 9-10}
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { MyApi } from ':my-scope/common-constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // APIのインフラを追加
+    new MyApi(this, 'MyApi');
+  }
+}
+```
+
+### ウェブサイトインフラ
+
+<Link path="guides/cloudscape-website">CloudScapeウェブサイト</Link>ジェネレーターを使用した場合、`packages/common/constructs`にデプロイ用のコンストラクトが存在します。例:
+
+```ts title="src/stacks/application-stack.ts" {3, 9-10}
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { MyWebsite } from ':my-scope/common-constructs';
+
+export class ApplicationStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // ウェブサイトのインフラを追加
+    new MyWebsite(this, 'MyWebsite');
+  }
+}
+```
+
+:::warning
+ウェブサイトの<Link path="guides/cloudscape-website#runtime-configuration">ランタイム設定</Link>にすべてのAPI設定を含めるためには、APIコンストラクトの後にウェブサイトを宣言することが重要です。
+:::
+
+## インフラの合成
+
+`build`ターゲットの一部として、<Link path="guides/typescript-project#building">デフォルトのコンパイル・リント・テストターゲット</Link>に加え、インフラプロジェクトをCloudFormationに合成します。`synth`ターゲットを実行することで単独でも実行可能です:
+
+<NxCommands commands={['run <my-infra>:synth']} />
+
+合成されたクラウドアセンブリはルート`dist`フォルダの`dist/packages/<my-infra-project>/cdk.out`に配置されます。
+
+## AWSアカウントのブートストラップ
+
+初めてAWSアカウントにCDKアプリケーションをデプロイする場合、事前にブートストラップが必要です。
+
+まず[AWSアカウントの認証情報設定](https://docs.aws.amazon.com/sdkref/latest/guide/access.html)を確認してください。
+
+次に`cdk bootstrap`コマンドを実行します:
+
+```bash
+npx cdk bootstrap aws://<account-id>/<region>
+```
+
+詳細は[CDKドキュメント](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html)を参照してください。
+
+## AWSへのデプロイ
+
+ビルド後、`deploy`ターゲットを使用してインフラをAWSにデプロイできます。
+
+まず[AWSアカウントの認証情報設定](https://docs.aws.amazon.com/sdkref/latest/guide/access.html)を確認してください。
+
+次にデプロイターゲットを実行します:
+
+<NxCommands commands={['run <my-infra>:deploy --all']} />
+
+:::tip
+上記コマンドは`main.ts`で定義されたすべてのスタックをデプロイします。アプリケーションの複数ステージを設定している場合など、個別のスタックを指定することも可能です:
+
+<NxCommands commands={['run <my-infra>:deploy my-sandbox-stack']} />
+:::
+
+## 追加情報
+
+CDKの詳細については[CDK開発者ガイド](https://docs.aws.amazon.com/cdk/v2/guide/core_concepts.html)と[APIリファレンス](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-construct-library.html)を参照してください。

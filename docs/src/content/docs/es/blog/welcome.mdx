@@ -1,0 +1,27 @@
+---
+title: "Bienvenido al @aws/nx-plugin"
+date: 2025-03-10
+authors:
+  - adrian
+  - jack
+---
+
+
+
+import Link from '@components/link.astro';
+import { Image } from 'astro:assets';
+import websiteGeneratorGif from '@assets/website-generator.gif';
+
+¡Y estamos en vivo! 🚀
+
+El Plugin Nx para AWS es un [plugin de Nx](https://nx.dev/) que proporciona un conjunto de herramientas para simplificar el desarrollo e implementación de aplicaciones full-stack en AWS. Ofrece a los desarrolladores plantillas preconfiguradas tanto para aplicaciones como para código de Infraestructura como Código (IaC), reduciendo significativamente el tiempo de configuración inicial. El plugin maneja la complejidad de integración con servicios de AWS manteniendo flexibilidad para personalizaciones.
+
+Los usuarios simplemente seleccionan los componentes deseados de la lista de generadores disponibles, proporcionan las opciones de configuración y el `@aws/nx-plugin` genera el código inicial requerido. El kit incluye generadores para crear APIs, sitios web, infraestructura, e incluso funcionalidades más avanzadas como integrar frontend con backend (¡incluyendo actualización de archivos existentes mediante transformaciones AST!) con clientes type-safe.
+
+<Image src={websiteGeneratorGif} alt="generator" width="800" height="600" />
+
+Para aprender más, comienza con nuestro <Link path="get_started/tutorials/dungeon-game/overview">tutorial de Aventura en la Mazmorra</Link>, que cubre todos los componentes principales del plugin y te dará una buena idea de cómo usarlo.
+
+¡Nos interesa tu feedback! No dudes en [crear una discusión](https://github.com/awslabs/nx-plugin-for-aws/discussions) o [reportar un issue](https://github.com/awslabs/nx-plugin-for-aws/issues) para contarnos tu opinión y qué te gustaría ver próximamente.
+
+<Link type="button" path="get_started/tutorials/dungeon-game/overview">¡Pruébalo!</Link>

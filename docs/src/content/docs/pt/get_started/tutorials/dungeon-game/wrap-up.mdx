@@ -1,0 +1,42 @@
+---
+title: "Jogo de Dungeons com IA"
+description: "Um guia passo a passo de como construir um jogo de aventura de dungeon com IA usando o @aws/nx-plugin."
+---
+
+
+
+import { Aside, Code, FileTree, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import Drawer from '@components/drawer.astro';
+import Link from '@components/link.astro';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import InstallCommand from '@components/install-command.astro';
+import dungeonAdventureArchitecturePng from '@assets/dungeon-game-architecture.png'
+import dungeonAdventureErPng from '@assets/dungeon-adventure-er.png'
+import baselineWebsitePng from '@assets/baseline-website.png'
+import baselineGamePng from '@assets/baseline-game.png'
+import nxGraphPng from '@assets/nx-graph.png'
+import gameSelectPng from '@assets/game-select.png'
+import gameConversationPng from '@assets/game-conversation.png'
+
+## Conclusão
+
+Parabéns! Você criou um jogo de aventura em dungeon que utiliza muitos dos geradores disponíveis no `@aws/nx-plugin`. 🎉🎉🎉
+
+## Próximos passos
+
+Recomendamos que você tente estender a base de código com as seguintes capacidades por conta própria:
+
+1. Adicione o <Link path="guides/license">gerador de licença</Link> ao seu projeto para gerenciar automaticamente arquivos LICENSE e cabeçalhos no código-fonte.
+2. <Link path="get_started/tutorials/create-generator">Crie seu próprio gerador</Link> para simplificar a adição de novas APIs tRPC.
+3. Adicione uma nova API `resetToAction` (usando seu gerador acima) no GameAPI que permita retroceder no tempo e excluir todas as ações a partir de um ponto específico. Atualize a UI para adicionar um botão em uma bolha de conversa que resete para este ponto (chamando a nova API).
+4. Explore os diversos guias disponíveis
+
+### Destruindo recursos
+
+Para destruir os recursos AWS criados, execute o comando:
+
+<NxCommands commands={['run @dungeon-adventure/infra:destroy --all']} />
+
+Isso solicitará uma lista de stacks para excluir, que devem incluir `waf` e `dungeon-adventure-infra-sandbox`. Digite `Y` e o Cloudformation destruirá seus stacks.

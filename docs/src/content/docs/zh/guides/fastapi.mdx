@@ -1,0 +1,240 @@
+---
+title: "FastAPI"
+description: "FastAPI 参考文档"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import Link from '@components/link.astro';
+import RunGenerator from '@components/run-generator.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import NxCommands from '@components/nx-commands.astro';
+import schema from '../../../../../../packages/nx-plugin/src/py/fast-api/schema.json';
+
+[FastAPI](https://fastapi.tiangolo.com/) 是一个用于构建 Python API 的框架。
+
+该 FastAPI 生成器会创建一个新的 FastAPI 项目并配置 AWS CDK 基础设施。生成的后端使用 AWS Lambda 进行无服务器部署，通过 AWS API Gateway HTTP API 暴露接口。它集成了 [AWS Lambda Powertools](https://docs.powertools.aws.dev/lambda/python/latest/) 用于可观测性，包括日志记录、AWS X-Ray 追踪和 Cloudwatch 指标。
+
+## 使用方法
+
+### 生成 FastAPI 项目
+
+可以通过两种方式生成新的 FastAPI 项目：
+
+<RunGenerator generator="py#fast-api" />
+
+### 选项配置
+
+<GeneratorParameters schema={schema} />
+
+## 生成器输出
+
+生成器将在 `<directory>/<api-name>` 目录下创建以下项目结构：
+
+<FileTree>
+
+- project.json 项目配置和构建目标
+- pyproject.toml Python 项目配置和依赖项
+- \<module_name>
+  - \_\_init\_\_.py 模块初始化
+  - init.py 设置 FastAPI 应用并配置 Powertools 中间件
+  - main.py API 实现
+
+</FileTree>
+
+生成器还会在 `packages/common/constructs` 目录中创建用于部署 API 的 CDK 构造。
+
+## 实现 FastAPI 功能
+
+主要的 API 实现位于 `main.py` 文件中。您可以在此定义 API 路由及其实现：
+
+```python
+from .init import app, tracer
+from pydantic import BaseModel
+
+class Item(BaseModel):
+  name: str
+
+@app.get("/items/{item_id}")
+def get_item(item_id: int) -> Item:
+    return Item(name=...)
+
+@app.post("/items")
+def create_item(item: Item):
+    return ...
+```
+
+生成器自动配置了以下功能：
+
+1. AWS Lambda Powertools 集成（用于可观测性）
+2. 错误处理中间件
+3. 请求/响应关联
+4. 指标收集
+5. 使用 Mangum 的 AWS Lambda 处理程序
+
+### 使用 AWS Lambda Powertools 进行可观测性
+
+#### 日志记录
+
+生成器使用 AWS Lambda Powertools 配置结构化日志：
+
+```python
+from .init import app, logger
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    logger.info("Fetching item", extra={"item_id": item_id})
+    return {"item_id": item_id}
+```
+
+日志自动包含：
+- 用于请求追踪的关联 ID
+- 请求路径和方法
+- Lambda 上下文信息
+- 冷启动指示器
+
+#### 追踪
+
+自动配置 AWS X-Ray 追踪：
+
+```python
+from .init import app, tracer
+
+@app.get("/items/{item_id}")
+@tracer.capture_method
+def read_item(item_id: int):
+    with tracer.provider.in_subsegment("fetch-item-details"):
+        return {"item_id": item_id}
+```
+
+#### 指标
+
+自动收集 CloudWatch 指标：
+
+```python
+from .init import app, metrics
+from aws_lambda_powertools.metrics import MetricUnit
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    metrics.add_metric(name="ItemViewed", unit=MetricUnit.Count, value=1)
+    return {"item_id": item_id}
+```
+
+默认指标包括：
+- 请求计数
+- 成功/失败计数
+- 冷启动指标
+- 按路由统计指标
+
+### 错误处理
+
+生成器包含全面的错误处理：
+
+```python
+from fastapi import HTTPException
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    if item_id < 0:
+        raise HTTPException(status_code=400, detail="Item ID must be positive")
+    return {"item_id": item_id}
+```
+
+未处理异常会被中间件捕获并：
+1. 记录完整异常堆栈
+2. 记录失败指标
+3. 返回安全的 500 响应
+4. 保留关联 ID
+
+:::tip
+建议为 API 操作指定响应模型，以便在使用 `api-connection` 生成器时获得更好的代码生成。<Link path="guides/api-connection/react-fastapi#errors">查看详细信息</Link>。
+:::
+
+### 流式传输
+
+使用 FastAPI 的 [`StreamingResponse`](https://fastapi.tiangolo.com/reference/responses/?h=streaming#fastapi.responses.StreamingResponse) 实现流式响应。
+
+#### 基础设施变更
+
+由于 AWS API Gateway 不支持流式响应，需调整 CDK 构造以支持 AWS Lambda 函数 URL：
+
+<details>
+<summary>变更示例</summary>
+
+（代码差异部分保持原样，此处略去具体实现）
+
+</details>
+
+变更后需更新 `packages/common/constructs/src/app/http-apis/<my-api>.ts` 文件。
+
+#### 实现流式 API
+
+示例实现：
+
+```py /return (StreamingResponse)/ /openapi_extra[^)]*/ /-> (Chunk)/
+from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+
+class Chunk(BaseModel):
+  message: str
+  timestamp: datetime
+
+async def stream_chunks():
+  for i in range(0, 100):
+    yield Chunk(message=f"This is chunk {i}", timestamp=datetime.now())
+
+@app.get("/stream", openapi_extra={'x-streaming': True})
+def my_stream() -> Chunk:
+    return StreamingResponse(stream_chunks(), media_type="application/json")
+```
+
+#### 消费流
+
+使用 <Link path="guides/api-connection/react-fastapi#consuming-a-stream">API 连接生成器</Link> 进行类型安全的流式消费。
+
+## 部署 FastAPI
+
+在 CDK 应用中使用构造：
+
+```ts
+import { MyApi } from ':my-scope/common-constructs';
+
+export class ExampleStack extends Stack {
+  constructor(scope: Construct, id: string) {
+    const api = new MyApi(this, 'MyApi');
+  }
+}
+```
+
+配置包括：
+1. 运行 FastAPI 的 Lambda 函数
+2. API Gateway HTTP API 触发器
+3. IAM 角色和权限
+4. CloudWatch 日志组
+5. X-Ray 追踪配置
+6. CloudWatch 指标命名空间
+
+### 授权访问
+
+使用 `grantInvokeAccess` 方法授权：
+
+```ts
+api.grantInvokeAccess(myIdentityPool.authenticatedRole);
+```
+
+## 本地开发
+
+使用以下命令启动开发服务器：
+
+<NxCommands commands={['run my-api:serve']} />
+
+功能包括：
+- 代码变更自动重载
+- 交互式 API 文档（`/docs` 或 `/redoc`）
+- OpenAPI 模式（`/openapi.json`）
+
+## 调用 FastAPI
+
+使用 <Link path="guides/api-connection/react-fastapi">`api-connection`</Link> 生成器从 React 网站调用 API。

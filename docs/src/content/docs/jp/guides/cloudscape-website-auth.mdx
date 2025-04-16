@@ -1,0 +1,94 @@
+---
+title: "クラウドスケープウェブサイト認証"
+description: "クラウドスケープウェブサイト認証のリファレンスドキュメント"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import Link from '@components/link.astro';
+import RunGenerator from '@components/run-generator.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import NxCommands from '@components/nx-commands.astro';
+import schema from '../../../../../../packages/nx-plugin/src/cloudscape-website/cognito-auth/schema.json';
+
+CloudScape Website Authentication ジェネレータは、[Amazon Cognito](https://aws.amazon.com/cognito/) を使用してCloudScapeウェブサイトに認証機能を追加します。
+
+このジェネレータは、Cognitoユーザープールと関連するIDプール、ユーザーログインフローを処理するホスト型UI、およびCloudScapeウェブサイトとの統合を設定するCDKインフラストラクチャを構成します。
+
+## 使い方
+
+### CloudScapeウェブサイトに認証を追加する
+
+CloudScapeウェブサイトに認証を追加する方法は2通りあります:
+
+<RunGenerator generator="ts#cloudscape-website#auth" />
+
+### オプション
+
+<GeneratorParameters schema={schema} />
+
+## ジェネレータの出力内容
+
+Reactウェブサイトに以下の変更が適用されます:
+
+<FileTree>
+  - src
+    - components
+      - CognitoAuth
+        - index.tsx メインの認証コンポーネント
+    - main.tsx CognitoAuthコンポーネントを組み込むよう更新
+</FileTree>
+
+インフラストラクチャコードは `packages/common/constructs` に生成されます:
+
+<FileTree>
+  - src
+    - core
+      - user-identity.ts ユーザープールとIDプールを定義するコンストラクト
+</FileTree>
+
+## インフラストラクチャの使用方法
+
+`UserIdentity` コンストラクトをウェブサイトコンストラクトの**前に**宣言する必要があります:
+
+```ts title="packages/infra/src/stacks/application-stack.ts" {3,9}
+import { Stack } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { MyWebsite, UserIdentity } from ':my-scope/common-constructs';
+
+export class ApplicationStack extends Stack {
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+
+    new UserIdentity(this, 'Identity');
+
+    new MyWebsite(this, 'MyWebsite');
+  }
+}
+```
+
+`UserIdentity` コンストラクトは自動的に必要な<Link path="guides/cloudscape-website#runtime-configuration">ランタイム設定</Link>を追加し、ウェブサイトが正しいCognitoユーザープールを参照できるようにします。
+
+### 認証済みユーザーへのアクセス権付与
+
+認証済みユーザーにAPI呼び出しなどの特定のアクションを許可するには、IDプールの認証済みロールにIAMポリシーステートメントを追加します:
+
+```ts title="packages/infra/src/stacks/application-stack.ts" {12}
+import { Stack } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { MyWebsite, UserIdentity, MyApi } from ':my-scope/common-constructs';
+
+export class ApplicationStack extends Stack {
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+
+    const identity = new UserIdentity(this, 'Identity');
+    const api = new MyApi(this, 'MyApi');
+
+    api.grantInvokeAccess(identity.identityPool.authenticatedRole);
+
+    new MyWebsite(this, 'MyWebsite');
+  }
+}
+```

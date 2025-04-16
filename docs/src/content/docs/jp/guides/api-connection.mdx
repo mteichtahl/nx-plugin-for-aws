@@ -1,0 +1,27 @@
+---
+title: "APIの接続"
+description: "APIの接続に関するリファレンスドキュメント"
+---
+
+
+
+import { LinkCard, CardGrid, LinkButton } from '@astrojs/starlight/components';
+
+このジェネレータはプロジェクトをAPIに接続するために使用されます。送信元プロジェクト（APIを呼び出すプロジェクト）と宛先プロジェクト（APIプロジェクト）を選択するだけで、2つのプロジェクトを統合する処理が自動的に行われます。
+
+### サポートされている接続
+
+API接続ジェネレータは以下の接続をサポートしています：
+
+<CardGrid>
+  <LinkCard
+    title="React to tRPC"
+    description="React ウェブサイトから tRPC API を呼び出す"
+    href="api-connection/react-trpc"
+  />
+  <LinkCard
+    title="React to FastAPI"
+    description="React ウェブサイトから Python FastAPI を呼び出す"
+    href="api-connection/react-fastapi"
+  />
+</CardGrid>

@@ -1,0 +1,258 @@
+---
+title: "TypeScriptプロジェクト"
+description: "TypeScriptプロジェクトのリファレンスドキュメント"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '@components/run-generator.astro';
+import InstallCommand from '@components/install-command.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import NxCommands from '@components/nx-commands.astro';
+import schema from '../../../../../../packages/nx-plugin/src/ts/lib/schema.json';
+
+TypeScriptプロジェクトジェネレータは、[ECMAScript Modules（ESM）](https://www.typescriptlang.org/docs/handbook/modules/reference.html)、TypeScriptの[プロジェクト参照](https://www.typescriptlang.org/docs/handbook/project-references.html)、テスト実行用の[Vitest](https://vitest.dev/)、静的解析用の[ESLint](https://eslint.org/)など、ベストプラクティスで構成されたモダンな[TypeScript](https://www.typescriptlang.org/)ライブラリやアプリケーションを作成するために使用できます。
+
+## 使用方法
+
+### TypeScriptプロジェクトの生成
+
+新しいTypeScriptプロジェクトを2つの方法で生成できます：
+
+<RunGenerator generator="ts#project" />
+
+### オプション
+
+<GeneratorParameters schema={schema} />
+
+## ジェネレータの出力
+
+ジェネレータは`<directory>/<name>`ディレクトリに以下のプロジェクト構造を作成します：
+
+<FileTree>
+
+  - src TypeScriptのソースコード
+    - index.ts
+  - project.json プロジェクト設定とビルドターゲット
+  - tsconfig.json このプロジェクト用の基本TypeScript設定（ワークスペースルートのtsconfig.base.jsonを継承）
+  - tsconfig.lib.json ライブラリ用TypeScript設定（ランタイムまたはパッケージ化されたソース）
+  - tsconfig.spec.json テスト用TypeScript設定
+  - vite.config.ts Vitestの設定
+  - eslint.config.mjs ESLintの設定
+
+</FileTree>
+
+:::tip
+`package.json`ファイルが作成されないことに注意してください！理由は[後述](#dependencies)で説明します。
+:::
+
+ワークスペースルートの以下のファイルにも変更が加えられます：
+
+<FileTree>
+
+  - nx.json Nx設定が更新され、プロジェクトに@nx/js/typescriptプラグインが構成されます
+  - tsconfig.base.json ワークスペース内の他のプロジェクトからインポート可能にするため、プロジェクトのTypeScriptエイリアスが設定されます
+  - tsconfig.json プロジェクトのTypeScriptプロジェクト参照が追加されます
+
+</FileTree>
+
+## TypeScriptソースコードの記述
+
+TypeScriptコードは`src`ディレクトリに追加します。
+
+### ESMインポート構文
+
+TypeScriptプロジェクトはESモジュールであるため、インポート文ではファイル拡張子を明示的に指定する必要があります：
+
+```ts title="index.ts" ".js"
+import { sayHello } from './hello.js';
+```
+
+:::note
+TypeScriptを使用していても、`sayHello`が`hello.ts`で定義されている場合、インポートでは`.js`ファイル拡張子を使用します。詳細は[こちら](https://www.typescriptlang.org/docs/handbook/modules/reference.html)をご覧ください。
+:::
+
+### 他のTypeScriptプロジェクト向けのエクスポート
+
+TypeScriptプロジェクトのエントリポイントは`src/index.ts`です。他のプロジェクトからインポート可能にする要素はここでエクスポートできます：
+
+```ts title="src/index.ts"
+export { sayHello } from './hello.js';
+export * from './algorithms/index.js';
+```
+
+### 他のプロジェクトでのライブラリコードのインポート
+
+ワークスペースの`tsconfig.base.json`で設定された[TypeScriptエイリアス](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths)により、他のTypeScriptプロジェクトからプロジェクトを参照できます：
+
+```ts title="packages/my-other-project/src/index.ts"
+import { sayHello } from ':my-scope/my-library';
+```
+
+:::note
+TypeScriptプロジェクトのエイリアスは従来の`@`ではなく`:`で始まります。これにより、ワークスペース内のローカルパッケージと[NPM](https://www.npmjs.com/)のリモートパッケージ間での名前衝突を防ぎます。
+:::
+
+ワークスペースで新しいプロジェクトのインポート文を初めて追加する際、以下のようなエラーがIDEに表示される場合があります：
+
+<details>
+<summary>インポートエラー</summary>
+
+```bash wrap
+File '/path/to/my/workspace/packages/my-library/src/index.ts' is not under 'rootDir' '/path/to/my/workspace/packages/my-consumer'. 'rootDir' is expected to contain all source files.
+  File is ECMAScript module because '/path/to/my/workspace/package.json' has field "type" with value "module" ts(6059)
+File '/path/to/my/workspace/packages/my-library/src/index.ts' is not listed within the file list of project '/path/to/my/workspace/packages/my-consumer/tsconfig.lib.json'. Projects must list all files or use an 'include' pattern.
+  File is ECMAScript module because '/path/to/my/workspace/package.json' has field "type" with value "module" ts(6307)
+```
+
+</details>
+
+これは[プロジェクト参照](https://www.typescriptlang.org/docs/handbook/project-references.html)が設定されていないためです。
+
+Nx TypeScript Syncジェネレータがデフォルトで構成されているため、手動での設定は不要です。以下のコマンドを実行すると必要な構成が追加されます：
+
+<NxCommands commands={['sync']} />
+
+これによりIDEのエラーが解消され、ライブラリを使用できるようになります。
+
+:::tip
+プロジェクトをビルドするだけで、以下のようなメッセージが表示される場合もあります：
+
+```bash wrap
+[@nx/js:typescript-sync]: Some TypeScript configuration files are missing project references to the projects they depend on or contain outdated project references.
+
+This will result in an error in CI.
+
+? Would you like to sync the identified changes to get your workspace up to date?
+Yes, sync the changes and run the tasks
+No, run the tasks without syncing the changes
+```
+
+`Yes`を選択するとNxがプロジェクト参照を更新します。
+:::
+
+### 依存関係
+
+TypeScriptプロジェクトに`package.json`ファイルが存在しないことに気付くかもしれません。これは従来のTypeScriptモノレポとは異なる点です。
+
+モノレポ内のTypeScriptパッケージに依存関係を追加するには、ワークスペースルートの`package.json`に依存関係を追加します。パッケージマネージャのコマンドラインから追加できます：
+
+<InstallCommand pkg="some-npm-package" />
+
+これにより、ワークスペース内のすべてのTypeScriptプロジェクトで依存関係が利用可能になります。
+
+#### ランタイムコード
+
+TypeScriptプロジェクトをランタイムコード（例：AWS Lambda関数のハンドラ）として使用する場合、[`esbuild`](https://esbuild.github.io/)のようなツールを使用してプロジェクトをバンドルすることを推奨します。これにより[ツリーシェイキング](https://esbuild.github.io/api/#tree-shaking)が行われ、実際に参照されている依存関係のみが含まれます。
+
+`project.json`ファイルに以下のようなターゲットを追加できます：
+
+```json
+{
+  ...
+  "targets": {
+    ...
+    "bundle": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/my-library/bundle"],
+      "options": {
+        "command": "esbuild packages/my-library/src/index.ts --bundle --outfile=dist/packages/my-library/bundle/index.js --platform=node --format=cjs"
+      }
+    },
+  },
+}
+```
+
+:::note
+上記のターゲットでは`src/index.ts`をバンドルのエントリポイントとして指定しています。このファイルからエクスポートされたコードとその依存関係がバンドルに含まれます。
+:::
+
+#### NPMへの公開
+
+TypeScriptプロジェクトをNPMに公開する場合、`package.json`ファイルを作成する必要があります。
+
+このファイルにはプロジェクトが参照する依存関係を宣言する必要があります。ビルド時にはワークスペースルートの`package.json`経由で依存関係が解決されるため、[Nx Dependency Checks ESLint Plugin](https://nx.dev/nx-api/eslint-plugin/documents/dependency-checks)を設定し、公開するプロジェクトの`package.json`にすべての依存関係が含まれるようにすることを推奨します。
+
+### ビルド
+
+TypeScriptプロジェクトには`build`ターゲット（`project.json`で定義）が設定されており、以下のコマンドで実行できます：
+
+<NxCommands commands={['run <project-name>:build']} />
+
+`<project-name>`はプロジェクトの完全修飾名です。
+
+`build`ターゲットはプロジェクトのコンパイル、リント、テストを実行します。
+
+ビルド出力はワークスペースルートの`dist`フォルダ内（例：`dist/packages/<my-library>/tsc`）に生成されます。
+
+## テスト
+
+[Vitest](https://vitest.dev/)がプロジェクトのテスト用に設定されています。
+
+### テストの記述
+
+テストは`.spec.ts`または`.test.ts`ファイルに記述し、プロジェクトの`src`フォルダに配置します。
+
+例：
+
+<FileTree>
+  - src
+    - hello.ts ライブラリソースコード
+    - hello.spec.ts hello.tsのテスト
+</FileTree>
+
+Vitestは`describe`、`it`、`test`、`expect`などのJest風の構文を提供します。
+
+```ts title="hello.spec.ts"
+import { sayHello } from './hello.js';
+
+describe('sayHello', () => {
+
+  it('should greet the caller', () => {
+    expect(sayHello('Darth Vader')).toBe('Hello, Darth Vader!');
+  });
+
+});
+```
+
+テストの記述方法やモックの作成など詳細は[Vitestドキュメント](https://vitest.dev/guide/#writing-tests)を参照してください。
+
+### テストの実行
+
+テストはプロジェクトの`build`ターゲットの一部として実行されますが、`test`ターゲットを個別に実行することもできます：
+
+<NxCommands commands={['run <project-name>:test']} />
+
+`-t`フラグを使用して特定のテストを実行できます：
+
+<NxCommands commands={["run <project-name>:test -t 'sayHello'"]} />
+
+:::tip
+VSCodeユーザーには[Vitest Runner for VSCode that actually works](https://marketplace.visualstudio.com/items?itemName=rluvaton.vscode-vitest)拡張機能のインストールを推奨します。IDEからテストの実行・監視・デバッグが可能になります。
+:::
+
+## リンティング
+
+TypeScriptプロジェクトではリンティングに[ESLint](https://eslint.org/)、フォーマットに[Prettier](https://prettier.io/)を使用します。
+
+ワークスペースルートの`eslint.config.mjs`ファイルでESLintを構成することを推奨します。これにより変更がすべてのTypeScriptプロジェクトに適用され、一貫性が保たれます。
+
+同様に、Prettierはルートの`.prettierrc`ファイルで構成できます。
+
+### リンターの実行
+
+プロジェクトのリンティングチェックを行うには`lint`ターゲットを実行します：
+
+<NxCommands commands={["run <project-name>:lint"]} />
+
+### リント問題の修正
+
+ほとんどのリンティングやフォーマットの問題は自動修正可能です。`--configuration=fix`引数を付けてESLintを実行します：
+
+<NxCommands commands={["run <project-name>:lint --configuration=fix"]} />
+
+ワークスペース内の全パッケージのリント問題を修正するには：
+
+<NxCommands commands={["run-many --target lint --all --configuration=fix"]} />

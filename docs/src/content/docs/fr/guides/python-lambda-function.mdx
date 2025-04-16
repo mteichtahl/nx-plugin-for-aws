@@ -1,0 +1,210 @@
+---
+title: "Fonctions Lambda Python"
+description: "Documentation de référence pour les fonctions Lambda Python"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import Link from '@components/link.astro';
+import RunGenerator from '@components/run-generator.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import schema from '../../../../../../packages/nx-plugin/src/py/lambda-function/schema.json';
+
+Le générateur de fonction Lambda Python permet d'ajouter une fonction lambda à un projet Python existant.
+
+Ce générateur crée un nouveau gestionnaire de fonction Lambda Python avec une configuration d'infrastructure AWS CDK. Le backend généré utilise AWS Lambda pour un déploiement serverless, avec une option de sécurité des types via le [Parser d'AWS Lambda Powertools](https://docs.powertools.aws.dev/lambda/python/latest/utilities/parser/). Il configure [AWS Lambda Powertools](https://docs.powertools.aws.dev/lambda/python/latest/) pour l'observabilité, incluant la journalisation, le traçage AWS X-Ray et les métriques CloudWatch.
+
+## Utilisation
+
+### Générer une fonction Lambda
+
+Vous pouvez générer une nouvelle fonction Lambda de deux manières :
+
+<RunGenerator generator="py#lambda-function" />
+
+### Options
+
+<GeneratorParameters schema={schema} />
+
+## Résultat du générateur
+
+Le générateur ajoutera les fichiers suivants à votre projet :
+
+<FileTree>
+
+- \<module-name>
+  - \<lambda-function>.py Implémentation de la fonction
+
+</FileTree>
+
+Le générateur créera également des constructs CDK utilisables pour déployer votre fonction, situés dans le répertoire `packages/common/constructs`.
+
+Si l'option `functionPath` est spécifiée, le générateur ajoutera les fichiers nécessaires au chemin indiqué :
+
+<FileTree>
+
+- \<module-name>
+  - \<custom-path>
+    - \<function-name>.py Implémentation de la fonction
+
+</FileTree>
+
+## Implémentation de votre fonction
+
+L'implémentation principale se trouve dans `<function-name>.py`. Voici un exemple :
+
+```python
+import os
+
+from aws_lambda_powertools import Logger, Metrics, Tracer
+from aws_lambda_powertools.metrics import MetricUnit
+from aws_lambda_powertools.utilities.parser import event_parser
+from aws_lambda_powertools.utilities.parser.models import EventBridgeModel
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
+os.environ["POWERTOOLS_METRICS_NAMESPACE"] = "Foo"
+os.environ["POWERTOOLS_SERVICE_NAME"] = "Foo"
+
+logger: Logger = Logger()
+metrics: Metrics = Metrics()
+tracer: Tracer = Tracer()
+
+@tracer.capture_lambda_handler
+@metrics.log_metrics
+@event_parser(model=EventBridgeModel)
+def lambda_handler(event: EventBridgeModel, context: LambdaContext):
+    logger.info("Received event", extra={"event": event.model_dump() })
+    metrics.add_metric(name="InvocationCount", unit=MetricUnit.Count, value=1)
+
+    try:
+        # TODO: Implement
+        metrics.add_metric(name="SuccessCount", unit=MetricUnit.Count, value=1)
+        # TODO: Implement success response if required
+    except Exception as e:
+        logger.exception(e)
+        metrics.add_metric(name="ErrorCount", unit=MetricUnit.Count, value=1)
+        # TODO: Implement error response if required
+```
+
+Le générateur configure automatiquement plusieurs fonctionnalités :
+
+1. Intégration d'AWS Lambda Powertools pour l'observabilité
+2. Collecte de métriques  
+3. Sécurité des types via `@event_parser`
+
+### Observabilité avec AWS Lambda Powertools
+
+#### Journalisation
+
+Le générateur configure la journalisation structurée avec AWS Lambda Powertools.
+
+```python
+def lambda_handler(event: EventBridgeModel, context: LambdaContext):
+    logger.info("Received event", extra={"event": event.model_dump()})
+```
+
+:::tip
+Il est recommandé de définir un identifiant de corrélation pour chaque requête unique afin de faciliter le débogage et la surveillance. Consultez la documentation du [logger AWS Powertools](https://docs.powertools.aws.dev/lambda/python/2.22.0/core/logger/#setting-a-correlation-id) pour les bonnes pratiques.
+:::
+
+Le logger inclut automatiquement :
+
+- Les requêtes d'événements
+- Les informations de contexte Lambda  
+- Les indicateurs de démarrage à froid
+
+#### Traçage
+
+Le traçage AWS X-Ray est configuré automatiquement. Vous pouvez ajouter des sous-segments personnalisés :
+
+```python
+def lambda_handler(event: EventBridgeModel, context: LambdaContext):
+    # Crée un nouveau sous-segment
+    with tracer.provider.in_subsegment("function-subsegment"):
+        # Votre logique ici
+        return ....
+```
+
+#### Métriques
+
+Les métriques CloudWatch sont collectées automatiquement pour chaque requête. Vous pouvez ajouter des métriques personnalisées :
+
+```python
+def lambda_handler(event: EventBridgeModel, context: LambdaContext):
+    metrics.add_metric(name="NewMetric", unit=MetricUnit.Count, value=1)
+    return ...
+```
+
+Les métriques par défaut incluent :
+
+- Nombre d'invocations
+- Métriques de succès/échec  
+- Métriques de démarrage à froid
+
+#### Sécurité des types
+
+Si vous avez choisi une `eventSource` lors de la génération, votre fonction est instrumentée avec [`@event_parser` d'AWS Lambda Powertools](https://docs.powertools.aws.dev/lambda/python/latest/utilities/parser/). Exemple :
+
+```python {3}
+@event_parser(model=EventBridgeModel)
+def lambda_handler(event: EventBridgeModel, context: LambdaContext):
+    event.detail_type # <- sécurité des types avec autocomplétion de l'IDE
+```
+
+Cela permet de définir des modèles de données avec [Pydantic](https://docs.pydantic.dev/latest/), similaire à <Link path="guides/fastapi">FastAPI</Link>.
+
+:::tip
+Pour des données personnalisées imbriquées (ex: flux DynamoDB ou événement EventBridge), utilisez [Envelopes](https://docs.powertools.aws.dev/lambda/python/latest/utilities/parser/#envelopes) pour assurer la sécurité des types.
+:::
+
+Pour ignorer le typage, sélectionnez `Any` comme `eventSource`.
+
+## Déploiement de votre fonction
+
+Le générateur crée un construct CDK dans `common/constructs` pour déployer votre fonction. Utilisez-le dans une application CDK :
+
+```ts
+import { MyProjectMyFunction } from ':my-scope/common-constructs';
+
+export class ExampleStack extends Stack {
+  constructor(scope: Construct, id: string) {
+    // Ajoute la fonction à votre stack
+    const fn = new MyProjectMyFunction(this, 'MyFunction');
+  }
+}
+```
+
+Ceci configure :
+
+1. Fonction AWS Lambda
+2. Groupe de logs CloudWatch  
+3. Configuration du traçage X-Ray
+4. Namespace de métriques CloudWatch
+
+La fonction peut ensuite être utilisée comme cible pour toute [source d'événement Lambda](https://docs.powertools.aws.dev/lambda/python/latest/utilities/parser/) :
+
+:::note
+Assurez-vous que la source d'événement correspond à l'option `eventSource` sélectionnée pour un traitement correct.
+:::
+
+L'exemple suivant montre comment invoquer votre fonction selon un planning avec EventBridge :
+
+```ts
+import { EventPattern, Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+import { MyProjectMyFunction } from ':my-scope/common-constructs';
+
+export class ExampleStack extends Stack {
+  constructor(scope: Construct, id: string) {
+    // Ajoute la fonction à votre stack
+    const fn = new MyProjectMyFunction(this, 'MyFunction');
+
+    // Ajoute la fonction à une règle EventBridge
+    const eventRule = new Rule(this, 'MyFunctionScheduleRule', {
+      schedule: Schedule.cron({ minute: '15' }),
+      targets: [new LambdaFunction(fn)],
+    });
+  }
+}
+```
