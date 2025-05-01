@@ -1,0 +1,505 @@
+---
+title: "Nxジェネレータージェネレーター"
+description: "Nxジェネレーターを生成"
+---
+
+
+
+import { FileTree } from '@astrojs/starlight/components';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import GeneratorParameters from '@components/generator-parameters.astro';
+import Drawer from '@components/drawer.astro';
+import Link from '@components/link.astro';
+import schema from '../../../../../../packages/nx-plugin/src/ts/nx-generator/schema.json';
+
+[Nx Generator](https://nx.dev/extending-nx/recipes/local-generators)をTypeScriptプロジェクトに追加し、コンポーネントのスキャフォールディングや特定のプロジェクト構造の強制など、反復的なタスクの自動化を支援します。
+
+## 使用方法
+
+### ジェネレーターの生成
+
+ジェネレーターは2つの方法で生成できます:
+
+<RunGenerator generator="ts#nx-generator" />
+
+### オプション
+
+<GeneratorParameters schema={schema} />
+
+## ジェネレーターの出力
+
+ジェネレーターは指定された`pluginProject`内に以下のプロジェクトファイルを作成します:
+
+<FileTree>
+  - src/\<name>/
+    - schema.json ジェネレーターの入力スキーマ
+    - schema.d.ts スキーマのTypeScript型定義
+    - generator.ts ジェネレーター実装のスタブ
+    - generator.spec.ts ジェネレーターのテスト
+  - generators.json ジェネレーター定義用Nx設定
+  - package.json 「generators」エントリを追加/更新
+  - tsconfig.json CommonJS使用に更新
+</FileTree>
+
+:::warning
+現在NxジェネレーターはCommonJSのみをサポートしているため、このジェネレーターは選択された`pluginProject`をCommonJS使用に更新します（[ESMサポートに関するGitHub Issue](https://github.com/nrwl/nx/issues/15682)）。
+:::
+
+## ローカルジェネレーター
+
+:::tip
+すべてのジェネレーター用に専用TypeScriptプロジェクトを`ts#project`ジェネレーターで最初に生成することを推奨します。例:
+
+<RunGenerator generator="ts#project" requiredParameters={{ name: 'nx-plugin', directory: 'tools' }} />
+:::
+
+`ts#nx-generator`ジェネレーター実行時にローカルの`nx-plugin`プロジェクトを選択し、名前とオプションのディレクトリ、説明を指定してください。
+
+### スキーマの定義
+
+`schema.json`ファイルはジェネレーターが受け入れるオプションを定義します。[JSON Schema](https://json-schema.org/)形式に[Nx拡張](https://nx.dev/extending-nx/recipes/generator-options)を加えた形式です。
+
+#### 基本構造
+
+schema.jsonファイルの基本構造:
+
+```json
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "YourGeneratorName",
+  "title": "Your Generator Title",
+  "description": "Description of what your generator does",
+  "type": "object",
+  "properties": {
+    // ジェネレーターオプションをここに記述
+  },
+  "required": ["requiredOption1", "requiredOption2"]
+}
+```
+
+#### シンプルな例
+
+基本的なオプションを含むシンプルな例:
+
+```json
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "ComponentGenerator",
+  "title": "Create a Component",
+  "description": "Creates a new React component",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Component name",
+      "x-priority": "important"
+    },
+    "directory": {
+      "type": "string",
+      "description": "Directory where the component will be created",
+      "default": "src/components"
+    },
+    "withTests": {
+      "type": "boolean",
+      "description": "Whether to generate test files",
+      "default": true
+    }
+  },
+  "required": ["name"]
+}
+```
+
+#### インタラクティブプロンプト（CLI）
+
+`x-prompt`プロパティを追加してCLI実行時のプロンプトをカスタマイズ:
+
+```json
+"name": {
+  "type": "string",
+  "description": "Component name",
+  "x-prompt": "What is the name of your component?"
+}
+```
+
+真偽値オプションではyes/noプロンプトを使用:
+
+```json
+"withTests": {
+  "type": "boolean",
+  "description": "Whether to generate test files",
+  "x-prompt": "Would you like to generate test files?"
+}
+```
+
+#### ドロップダウン選択肢
+
+固定選択肢があるオプションには`enum`を使用:
+
+```json
+"style": {
+  "type": "string",
+  "description": "The styling approach to use",
+  "enum": ["css", "scss", "styled-components", "none"],
+  "default": "css"
+}
+```
+
+#### プロジェクト選択ドロップダウン
+
+ワークスペース内の既存プロジェクトから選択させる一般的なパターン:
+
+```json
+"project": {
+  "type": "string",
+  "description": "The project to add the component to",
+  "x-prompt": "Which project would you like to add the component to?",
+  "x-dropdown": "projects"
+}
+```
+
+`x-dropdown: "projects"`プロパティはNxにワークスペース内の全プロジェクトをドロップダウンに表示するよう指示します。
+
+#### 位置引数
+
+コマンドラインから位置引数としてオプションを渡す設定:
+
+```json
+"name": {
+  "type": "string",
+  "description": "Component name",
+  "x-priority": "important",
+  "$default": {
+    "$source": "argv",
+    "index": 0
+  }
+}
+```
+
+これにより`nx g your-generator my-component`のように名前を引数で渡せるようになります。
+
+#### 優先度の設定
+
+`x-priority`プロパティで重要度を表示:
+
+```json
+"name": {
+  "type": "string",
+  "description": "Component name",
+  "x-priority": "important"
+}
+```
+
+優先度は`"important"`または`"internal"`を指定可能。Nx VSCode拡張やCLIでのプロパティ順序付けに役立ちます。
+
+#### デフォルト値
+
+オプションにデフォルト値を設定:
+
+```json
+"directory": {
+  "type": "string",
+  "description": "Directory where the component will be created",
+  "default": "src/components"
+}
+```
+
+#### 詳細情報
+
+スキーマの詳細については[Nx Generator Optionsドキュメント](https://nx.dev/extending-nx/recipes/generator-options)を参照。
+
+#### schema.d.tsによるTypeScript型
+
+`schema.json`と共に生成される`schema.d.ts`ファイルはジェネレーターオプションのTypeScript型を提供します:
+
+```typescript
+export interface YourGeneratorSchema {
+  name: string;
+  directory?: string;
+  withTests?: boolean;
+}
+```
+
+このインターフェースはジェネレーター実装で型安全性とコード補完に使用されます:
+
+```typescript
+import { YourGeneratorSchema } from './schema';
+
+export default async function (tree: Tree, options: YourGeneratorSchema) {
+  // オプションの型がTypeScriptで認識される
+  const { name, directory = 'src/components', withTests = true } = options;
+  // ...
+}
+```
+
+:::caution
+`schema.json`を変更する際は、必ず`schema.d.ts`も更新してください。具体的には:
+
+- プロパティの追加/削除
+- プロパティ型の変更
+- 必須/オプションの変更（オプションの場合は`?`接尾辞を使用）
+
+TypeScriptインターフェースはJSONスキーマの構造を正確に反映する必要があります。
+:::
+
+### ジェネレーターの実装
+
+上記の方法でジェネレーターを作成後、`generator.ts`に実装を記述できます。
+
+ジェネレーターは仮想ファイルシステム（`Tree`）を操作する関数です。変更はジェネレーター終了時（dry-runモードでない場合）にのみディスクに書き込まれます。
+
+代表的な操作例:
+
+#### ファイルの読み書き
+
+```typescript
+// ファイル読み取り
+const content = tree.read('path/to/file.ts', 'utf-8');
+
+// ファイル書き込み
+tree.write('path/to/new-file.ts', 'export const hello = "world";');
+
+// ファイル存在確認
+if (tree.exists('path/to/file.ts')) {
+  // 処理を実行
+}
+```
+
+#### テンプレートからのファイル生成
+
+```typescript
+import { generateFiles, joinPathFragments } from '@nx/devkit';
+
+// テンプレートからファイル生成
+generateFiles(
+  tree,
+  joinPathFragments(__dirname, 'files'), // テンプレートディレクトリ
+  'path/to/output', // 出力ディレクトリ
+  {
+    // テンプレート置換用変数
+    name: options.name,
+    nameCamelCase: camelCase(options.name),
+    nameKebabCase: kebabCase(options.name),
+    // 必要に応じて変数を追加
+  },
+);
+```
+
+#### TypeScript AST操作
+
+[TSQuery](https://github.com/phenomnomnominal/tsquery)の使用を推奨します。
+
+```typescript
+import { tsquery } from '@phenomnomnominal/tsquery';
+import * as ts from 'typescript';
+
+// 例: ファイル内バージョン番号のインクリメント
+
+// ファイル内容をTypeScript ASTにパース
+const sourceFile = tsquery.ast(tree.read('path/to/version.ts', 'utf-8'));
+
+// セレクターに一致するノードを検索
+const nodes = tsquery.query(
+  sourceFile,
+  'VariableDeclaration:has(Identifier[name="VERSION"]) NumericLiteral',
+);
+
+if (nodes.length > 0) {
+  // 数値リテラルノードを取得
+  const numericNode = nodes[0] as ts.NumericLiteral;
+
+  // 現在のバージョンを取得してインクリメント
+  const currentVersion = Number(numericNode.text);
+  const newVersion = currentVersion + 1;
+
+  // ASTノードを置換
+  const result = tsquery.replace(
+    sourceFile,
+    'VariableDeclaration:has(Identifier[name="VERSION"]) NumericLiteral',
+    () => ts.factory.createNumericLiteral(newVersion),
+  );
+
+  // 更新内容をtreeに書き込み
+  tree.write(
+    'path/to/version.ts',
+    ts
+      .createPrinter({
+        newLine: ts.NewLineKind.LineFeed,
+      })
+      .printNode(ts.EmitHint.Unspecified, result, sourceFile),
+  );
+}
+```
+
+:::tip
+セレクターは[TSQuery Playground](https://tsquery-playground.firebaseapp.com/)でオンライン検証可能です。
+:::
+
+#### 依存関係の追加
+
+```typescript
+import { addDependenciesToPackageJson } from '@nx/devkit';
+
+// package.jsonに依存関係を追加
+addDependenciesToPackageJson(
+  tree,
+  {
+    'new-dependency': '^1.0.0',
+  },
+  {
+    'new-dev-dependency': '^2.0.0',
+  },
+);
+```
+
+:::note
+package.jsonに依存関係を追加後、ジェネレーターコールバックでインストール可能:
+
+```ts
+import { installPackagesTask } from '@nx/devkit';
+
+// ジェネレーターは依存関係インストールなどの後処理タスクを実行するコールバックを返す
+return () => {
+  installPackagesTask(tree);
+};
+```
+:::
+
+#### 生成ファイルのフォーマット
+
+```typescript
+import { formatFiles } from '@nx/devkit';
+
+// 変更された全ファイルをフォーマット
+await formatFiles(tree);
+```
+
+#### JSONファイルの読み書き
+
+```typescript
+import { readJson, updateJson } from '@nx/devkit';
+
+// JSONファイル読み取り
+const packageJson = readJson(tree, 'package.json');
+
+// JSONファイル更新
+updateJson(tree, 'tsconfig.json', (json) => {
+  json.compilerOptions = {
+    ...json.compilerOptions,
+    strict: true,
+  };
+  return json;
+});
+```
+
+### ジェネレーターの実行
+
+ジェネレーターは2つの方法で実行できます:
+
+<RunGenerator namespace="@my-project/nx-plugin" generator="my-generator" />
+
+:::note
+VSCodeプラグインUIにジェネレーターが表示されない場合、Nxワークスペースを更新:
+
+<NxCommands commands={['reset']} />
+:::
+
+### ジェネレーターのテスト
+
+ジェネレーターの単体テストは簡単に実装できます。代表的なパターン:
+
+```typescript
+import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
+import { yourGenerator } from './generator';
+
+describe('your generator', () => {
+  let tree;
+
+  beforeEach(() => {
+    // 空のワークスペースtreeを作成
+    tree = createTreeWithEmptyWorkspace();
+
+    // treeに既存ファイルを追加
+    tree.write(
+      'project.json',
+      JSON.stringify({
+        name: 'test-project',
+        sourceRoot: 'src',
+      }),
+    );
+
+    tree.write('src/existing-file.ts', 'export const existing = true;');
+  });
+
+  it('should generate expected files', async () => {
+    // ジェネレーター実行
+    await yourGenerator(tree, {
+      name: 'test',
+      // その他必須オプション
+    });
+
+    // ファイル生成確認
+    expect(tree.exists('src/test/file.ts')).toBeTruthy();
+
+    // ファイル内容確認
+    const content = tree.read('src/test/file.ts', 'utf-8');
+    expect(content).toContain('export const test');
+
+    // スナップショットも使用可能
+    expect(tree.read('src/test/file.ts', 'utf-8')).toMatchSnapshot();
+  });
+
+  it('should update existing files', async () => {
+    // ジェネレーター実行
+    await yourGenerator(tree, {
+      name: 'test',
+      // その他必須オプション
+    });
+
+    // 既存ファイルの更新確認
+    const content = tree.read('src/existing-file.ts', 'utf-8');
+    expect(content).toContain('import { test } from');
+  });
+
+  it('should handle errors', async () => {
+    // 特定条件でのエラー発生を確認
+    await expect(
+      yourGenerator(tree, {
+        name: 'invalid',
+        // エラーを引き起こすオプション
+      }),
+    ).rejects.toThrow('Expected error message');
+  });
+});
+```
+
+テストの要点:
+
+- `createTreeWithEmptyWorkspace()`で仮想ファイルシステムを作成
+- ジェネレーター実行前の前提条件ファイルを設定
+- 新規ファイル生成と既存ファイル更新の両方をテスト
+- 複雑なファイル内容にはスナップショットを使用
+- エラー発生条件をテストして適切な失敗を確認
+
+## @aws/nx-pluginへのジェネレーターの提供
+
+`ts#nx-generator`を使用して`@aws/nx-plugin`内にジェネレーターのスキャフォールドを作成できます。
+
+このジェネレーターをリポジトリ内で実行すると、以下のファイルが生成されます:
+
+<FileTree>
+  - packages/nx-plugin/src/\<name>/
+    - schema.json ジェネレーター入力スキーマ
+    - schema.d.ts スキーマのTypeScript型定義
+    - generator.ts ジェネレーター実装
+    - generator.spec.ts テスト
+  - docs/src/content/docs/guides/
+    - \<name>.mdx ジェネレーターのドキュメントページ
+  - packages/nx-plugin/generators.json ジェネレーター定義を更新
+</FileTree>
+
+その後、ジェネレーターの実装を開始できます。
+
+:::tip
+AWS向けNx Pluginへの貢献に関する詳細ガイドは、<Link path="get_started/tutorials/contribute-generator">こちらのチュートリアル</Link>を参照してください。
+:::

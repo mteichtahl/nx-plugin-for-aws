@@ -1,0 +1,331 @@
+---
+title: "贡献生成器"
+description: "使用 @aws/nx-plugin 构建生成器的演练。"
+---
+
+
+
+import {
+  Aside,
+  Code,
+  FileTree,
+  Steps,
+  Tabs,
+  TabItem,
+} from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import Drawer from '@components/drawer.astro';
+import Link from '@components/link.astro';
+import RunGenerator from '@components/run-generator.astro';
+import NxCommands from '@components/nx-commands.astro';
+import LinkCommand from '@components/link-command.astro';
+import CreateNxWorkspaceCommand from '@components/create-nx-workspace-command.astro';
+import InstallCommand from '@components/install-command.astro';
+import dungeonAdventureArchitecturePng from '@assets/dungeon-game-architecture.png';
+import dungeonAdventureErPng from '@assets/dungeon-adventure-er.png';
+import baselineWebsitePng from '@assets/baseline-website.png';
+import baselineGamePng from '@assets/baseline-game.png';
+import nxGraphPng from '@assets/nx-graph.png';
+import gameSelectPng from '@assets/game-select.png';
+import gameConversationPng from '@assets/game-conversation.png';
+
+让我们为`@aws/nx-plugin`创建一个新的生成器，目标是为tRPC API生成新的操作流程。
+
+### 查看插件
+
+首先克隆插件仓库：
+
+```bash
+git clone git@github.com:awslabs/nx-plugin-for-aws.git
+```
+
+安装并构建：
+
+```bash
+cd nx-plugin-for-aws
+pnpm i
+pnpm nx run-many --target build --all
+```
+
+### 创建空生成器
+
+在`packages/nx-plugin/src/trpc/procedure`目录下创建新生成器。
+
+我们提供了一个生成器脚手架工具，可快速创建新生成器：
+
+<RunGenerator generator="ts#nx-generator" requiredParameters={{ pluginProject: '@aws/nx-plugin', name: 'ts#trpc-api#procedure', directory: 'trpc/procedure', description: '为tRPC API添加操作流程' }} />
+
+生成的文件结构如下：
+
+<FileTree>
+  - packages/nx-plugin/src/trpc/procedure
+    - schema.json 定义生成器的输入参数
+    - schema.d.ts 与schema对应的TypeScript接口
+    - generator.ts Nx运行的生成器主逻辑
+    - generator.spec.ts 生成器测试用例
+  - docs/src/content/docs/guides/
+    - trpc-procedure.mdx 生成器文档
+  - packages/nx-plugin/generators.json 更新后的生成器配置
+</FileTree>
+
+更新schema.json添加必要属性：
+
+<Tabs>
+  <TabItem label="schema.json">
+    ```json
+    {
+      "$schema": "https://json-schema.org/schema",
+      "$id": "tRPCProcedure",
+      "title": "为tRPC API添加操作流程",
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "目标tRPC API项目",
+          "x-prompt": "选择要添加操作流程的tRPC API项目",
+          "x-dropdown": "projects",
+          "x-priority": "important"
+        },
+        "procedure": {
+          "description": "新操作流程名称",
+          "type": "string",
+          "x-prompt": "请输入新操作流程名称",
+          "x-priority": "important",
+        },
+        "type": {
+          "description": "要生成的操作类型",
+          "type": "string",
+          "x-prompt": "选择要生成的操作类型",
+          "x-priority": "important",
+          "default": "query",
+          "enum": ["query", "mutation"]
+        }
+      },
+      "required": ["project", "procedure"]
+    }
+    ```
+  </TabItem>
+  <TabItem label="schema.d.ts">
+    ```ts
+    export interface TrpcProcedureSchema {
+      project: string;
+      procedure: string;
+      type: 'query' | 'mutation';
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::note
+生成器接收`Tree`对象作为输入参数，该对象代表虚拟文件系统。通过操作`Tree`而非直接访问物理文件系统，可以支持"dry-run"模式下的安全测试。
+:::
+
+生成器已自动注册到`packages/nx-plugin/generators.json`：
+
+```json
+ ...
+  "generators": {
+    ...
+    "ts#trpc-api#procedure": {
+      "factory": "./src/trpc/procedure/generator",
+      "schema": "./src/trpc/procedure/schema.json",
+      "description": "为tRPC API添加操作流程"
+    }
+  },
+...
+```
+
+### 实现生成器
+
+实现步骤如下：
+
+1. 创建新操作流程的TypeScript文件
+2. 将操作流程添加到路由
+
+#### 创建操作流程文件
+
+使用`generateFiles`工具生成模板文件。模板位于`packages/nx-plugin/src/trpc/procedure/files/procedures/__procedureNameKebabCase__.ts.template`：
+
+```ts title="files/procedures/__procedureNameKebabCase__.ts.template"
+import { publicProcedure } from '../init.js';
+import { z } from 'zod';
+
+export const <%- procedureNameCamelCase %> = publicProcedure
+  .input(z.object({
+    // TODO: 定义输入参数
+  }))
+  .output(z.object({
+    // TODO: 定义输出格式
+  }))
+  .<%- procedureType %>(async ({ input, ctx }) => {
+    // TODO: 实现业务逻辑
+    return {};
+  });
+```
+
+:::tip
+`generateFiles`会自动处理文件名中的`__variable__`占位符，并移除`.template`后缀。模板内容使用EJS语法，通过`<% ... %>`引用变量。
+:::
+
+更新生成器逻辑：
+
+```ts title="procedure/generator.ts" {8-19}
+import {
+  generateFiles,
+  joinPathFragments,
+  readProjectConfiguration,
+  Tree,
+} from '@nx/devkit';
+import { TrpcProcedureSchema } from './schema';
+import { formatFilesInSubtree } from '../../utils/format';
+import camelCase from 'lodash.camelcase';
+import kebabCase from 'lodash.kebabcase';
+
+export const trpcProcedureGenerator = async (
+  tree: Tree,
+  options: TrpcProcedureSchema,
+) => {
+  const projectConfig = readProjectConfiguration(tree, options.project);
+
+  const procedureNameCamelCase = camelCase(options.procedure);
+  const procedureNameKebabCase = kebabCase(options.procedure);
+
+  generateFiles(
+    tree,
+    joinPathFragments(__dirname, 'files'),
+    projectConfig.sourceRoot,
+    {
+      procedureNameCamelCase,
+      procedureNameKebabCase,
+      procedureType: options.type,
+    },
+  );
+
+  await formatFilesInSubtree(tree);
+};
+
+export default trpcProcedureGenerator;
+```
+
+:::tip
+`formatFilesInSubtree`会自动格式化生成的文件，确保符合用户的Prettier配置。
+:::
+
+#### 添加操作流程到路由
+
+使用AST操作更新路由文件：
+
+```ts title="procedure/generator.ts" {6, 23-33}
+import {
+  generateFiles,
+  joinPathFragments,
+  readProjectConfiguration,
+  Tree,
+} from '@nx/devkit';
+import { TrpcProcedureSchema } from './schema';
+import { formatFilesInSubtree } from '../../utils/format';
+import camelCase from 'lodash.camelcase';
+import kebabCase from 'lodash.kebabcase';
+import { destructuredImport, replace } from '../../utils/ast';
+import { factory, ObjectLiteralExpression } from 'typescript';
+
+export const trpcProcedureGenerator = async (
+  tree: Tree,
+  options: TrpcProcedureSchema,
+) => {
+  const projectConfig = readProjectConfiguration(tree, options.project);
+
+  const procedureNameCamelCase = camelCase(options.procedure);
+  const procedureNameKebabCase = kebabCase(options.procedure);
+
+  generateFiles(
+    tree,
+    joinPathFragments(__dirname, 'files'),
+    projectConfig.sourceRoot,
+    {
+      procedureNameCamelCase,
+      procedureNameKebabCase,
+      procedureType: options.type,
+    },
+  );
+
+  const routerPath = joinPathFragments(projectConfig.sourceRoot, 'router.ts');
+
+  destructuredImport(
+    tree,
+    routerPath,
+    [procedureNameCamelCase],
+    `./procedures/${procedureNameKebabCase}.js`,
+  );
+
+  replace(
+    tree,
+    routerPath,
+    'CallExpression[expression.name="router"] > ObjectLiteralExpression',
+    (node) =>
+      factory.createObjectLiteralExpression([
+        ...(node as ObjectLiteralExpression).properties,
+        factory.createShorthandPropertyAssignment(procedureNameCamelCase),
+      ]),
+  );
+
+  await formatFilesInSubtree(tree);
+};
+
+export default trpcProcedureGenerator;
+```
+
+:::tip
+`replace`函数使用[tsquery](https://github.com/phenomnomnominal/tsquery)选择器定位路由函数参数，可通过[tsquery playground](https://tsquery-playground.firebaseapp.com/)测试选择器。
+:::
+
+编译生成器：
+
+```bash
+pnpm nx run @aws/nx-plugin:compile
+```
+
+### 测试生成器
+
+#### 创建测试项目
+
+新建测试工作区：
+
+<CreateNxWorkspaceCommand workspace="trpc-generator-test" />
+
+生成测试用tRPC API：
+
+<RunGenerator generator="ts#trpc-api" requiredParameters={{apiName:"test-api"}} noInteractive />
+
+#### 链接本地插件
+
+在项目中链接本地插件：
+
+<LinkCommand
+  dependency="@aws/nx-plugin"
+  dependencyPath="path/to/nx-plugin-for-aws/dist/packages/nx-plugin"
+  projectPath="path/to/trpc-generator-test"
+/>
+
+:::note
+注意链接到编译后的`dist`目录而非源代码。
+:::
+
+#### 运行生成器
+
+执行新生成器：
+
+<RunGenerator generator="ts#trpc-api#procedure" />
+
+:::note
+若在VSCode中看不到新生成器，可刷新Nx工作区：
+
+<NxCommands commands={['reset']} />
+:::
+
+### 扩展练习
+
+1. **嵌套操作**：支持通过点分隔符（如`games.query`）创建嵌套路由
+2. **输入校验**：增加对非tRPC项目的选择防护
+3. **单元测试**：编写生成器单元测试用例
+4. **端到端测试**：更新现有测试用例包含新生成器
