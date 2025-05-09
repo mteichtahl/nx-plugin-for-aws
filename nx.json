@@ -100,11 +100,9 @@
   "release": {
     "projects": ["@aws/nx-plugin"],
     "version": {
-      "generatorOptions": {
-        "packageRoot": "dist/packages/nx-plugin",
-        "currentVersionResolver": "git-tag",
-        "specifierSource": "conventional-commits"
-      }
+      "manifestRootsToUpdate": ["dist/packages/nx-plugin"],
+      "specifierSource": "conventional-commits",
+      "currentVersionResolver": "git-tag"
     },
     "changelog": {
       "workspaceChangelog": {
