@@ -35,4 +35,4 @@ jobs:
       - uses: anthropics/claude-code-action@beta
         with:
           use_bedrock: "true"
-          model: "anthropic.claude-sonnet-4-20250514-v1:0"
+          model: "us.anthropic.claude-sonnet-4-20250514-v1:0"
