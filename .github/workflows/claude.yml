@@ -1,0 +1,24 @@
+name: Claude Assistant
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude-response:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CLAUDE_ROLE_ARN }}
+          aws-region: us-west-2
+      - uses: anthropics/claude-code-action@beta
+        with:
+          use_bedrock: "true"
+          model: "anthropic.claude-sonnet-4-20250514-v1:0"
