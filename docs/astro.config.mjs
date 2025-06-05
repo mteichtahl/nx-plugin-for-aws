@@ -36,7 +36,7 @@ export default defineConfig({
           tag: 'meta',
           attrs: {
             property: 'og:image',
-            content: '/nx-plugin-for-aws/favicon.svg'
+            content: '/nx-plugin-for-aws/favicon.svg',
           },
         },
       ],
@@ -301,6 +301,10 @@ export default defineConfig({
             {
               label: 'license',
               link: '/guides/license',
+            },
+            {
+              label: 'ts#cloudscape-website#verified-permissions',
+              link: '/guides/ts-cloudscape-website-verified-permissions',
             },
           ],
         },

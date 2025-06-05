@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "Verified permissions",
+  "cli": "nx",
+  "title": "AWS Verified Permissions for Cloudscape website.",
+  "description": "Add AWS Verified Permissions to an existing ts#cloudscape-website#cognitoAuth",
+  "type": "object",
+  "properties": {
+    "project": {
+      "description": "The root directory of the Cloudscape application.",
+      "type": "string",
+      "alias": "dir",
+      "x-priority": "important",
+      "x-prompt": "The root directory for your Cloudscape application",
+      "x-dropdown": "projects"
+    },
+    "namespace": {
+      "description": "Namespace of the verified permissions schema. Can not be aws, amazon, or cedar.",
+      "type": "string",
+      "x-prompt": "What is the namespace for your verified permissions?",
+      "x-priority": "important",
+      "default": "Default"
+    },
+    "principalEntity": {
+      "description": "The principal entity type that you want to associate with your identity source.",
+      "type": "string",
+      "x-prompt": "What is your principal entity?",
+      "x-priority": "important",
+      "default": "User"
+    },
+    "groupEntity": {
+      "description": "The group entity type that you want to associate with your groups.",
+      "type": "string",
+      "x-prompt": "What is your group entity?",
+      "x-priority": "important",
+      "default": "Group"
+    }
+  },
+  "required": ["project"]
+}
