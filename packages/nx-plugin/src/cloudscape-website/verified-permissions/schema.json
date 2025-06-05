@@ -1,0 +1,31 @@
+{
+  "//": "Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/schema",
+  "$id": "ts#cloudscape-website#verified-permissions",
+  "title": "ts#cloudscape-website#verified-permissions",
+  "description": "Add AWS Verified Permissions to an existing ts#cloudscape-website#cognitoAuth",
+  "type": "object",
+  "properties": {
+    "project": {
+      "description": "The root directory of the Cloudscape application.",
+      "type": "string",
+      "alias": "dir",
+      "x-priority": "important",
+      "x-prompt": "the root directory for your Cloudscape application",
+      "x-dropdown": "projects"
+    },
+    "namespace": {
+      "description": "Namespace of the verified permissions schema. Can not be aws, amazon, or cedar.",
+      "type": "string",
+      "x-prompt": "What is the namespace for your verified permissions?",
+      "default": "Default"
+    },
+    "principalEntity": {
+      "description": "The principal entity type that you want to associate with your identity source, for example MyCorp::User",
+      "type": "string",
+      "x-prompt": "What is your principal entity?",
+      "default": "User"
+    }
+  },
+  "required": ["project"]
+}

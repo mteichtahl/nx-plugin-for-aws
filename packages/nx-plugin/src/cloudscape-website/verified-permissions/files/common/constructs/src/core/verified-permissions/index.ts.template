@@ -1,0 +1,354 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { ICustomAttribute, UserPool, UserPoolClient, UserPoolOperation } from 'aws-cdk-lib/aws-cognito';
+import { Construct } from 'constructs';
+import { CfnIdentitySource, CfnPolicy, CfnPolicyStore, CfnPolicyStoreProps } from 'aws-cdk-lib/aws-verifiedpermissions';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Runtime, Code } from 'aws-cdk-lib/aws-lambda';
+import { Effect, Policy, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
+import { CfnOutput, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { validateSchemaAttributes } from './utils/validators.js';
+import {
+  CedarJson,
+  validateCedarSchema,
+} from './utils/cedar-json-validator.js';
+import { Trail } from 'aws-cdk-lib/aws-cloudtrail';
+import { Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { LogGroup } from 'aws-cdk-lib/aws-logs';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Structure for Cedar policy files
+ */
+interface CedarPolicyFile {
+  /** Name of the policy */
+  name?: string;
+  /** Description of the policy */
+  description?: string;
+  /** Cedar policy statement */
+  statement: string;
+}
+
+/**
+ * Defines a map of attribute names to their Cognito custom attribute configurations.
+ * These attributes will be validated against the UserPool schema.
+ */
+export type RequiredAttributes = Record<string, ICustomAttribute>;
+
+/**
+ * Defines the Cognito identity provider integration with AWS Verified Permissions.
+ */
+export interface CognitoIdentityProvider {
+  /** The Cognito User Pool to use as an identity provider */
+  userPool: UserPool;
+
+  /** The Cognito User Pool Clients that can interact with Verified Permissions */
+  userPoolClients: UserPoolClient[];
+
+  /** Custom attributes that must be defined in the user pool */
+  requiredAttributes: RequiredAttributes;
+
+  /** Entity name for groups (defaults to "Group" if not specified) */
+  groupEntity?: string;
+
+  /** Whether to create a default admin group */
+  createAdminGroup?: boolean;
+
+  /** Whether to create a default user group */
+  createUserGroup?: boolean;
+}
+
+/**
+ * Properties required to initialize a VerifiedPermissions construct.
+ */
+export interface VerifiedPermissionsProps extends Omit<CfnPolicyStoreProps, 'schema'> {
+  /** Namespace prefix for resource naming and organization */
+  namespace: string;
+
+  /** Cedar schema in JSON format that defines the authorization model */
+  cedarJsonSchema: CedarJson;
+
+  /** Entity type for principals (defaults to "User" if not specified) */
+  principalEntityType?: string;
+
+  /** Whether to perform Cedar schema validation (defaults to true) */
+  validateCedarSchema?: boolean;
+
+  /** The identity source configuration */
+  identitySource: CognitoIdentityProvider;
+
+  /** Whether to create a default admin policy */
+  createDefaultAdminPolicy?: boolean;
+
+  /** IAM role that will be granted permissions to call Verified Permissions APIs */
+  authenticatedRole: Role;
+
+  /** Create a cloudtrail for AVP */
+  enableCloudTrail?: boolean;
+}
+
+/**
+ * Static policy configuration for adding policies to the policy store
+ */
+export interface StaticPolicyProps {
+  /** Name for the policy (used in the CloudFormation resource ID) */
+  name: string;
+  /** Description of what the policy does */
+  description: string;
+  /** Cedar policy statement defining the authorization rules */
+  statement: string;
+}
+
+/**
+ * A CDK construct that implements Attribute-Based Access Control (ABAC)
+ * using AWS Verified Permissions integrated with Amazon Cognito.
+ *
+ * This construct creates:
+ * 1. An AWS Verified Permissions Policy Store with Cedar schema
+ * 2. A Cognito Identity Source linked to the Policy Store
+ * 3. An IAM role with permissions to call Verified Permissions APIs
+ * 4. A default admin policy for resource access (optional)
+ * 5. CloudTrail configuration for logging authorization decisions (optional)
+ */
+export class VerifiedPermissions extends CfnPolicyStore {
+  /** The namespace used for resource naming */
+  public readonly namespace: string;
+
+  /** The Cognito identity source configuration linking to the policy store */
+  public readonly identitySource: CfnIdentitySource;
+
+  /**
+   * Creates a new VerifiedPermissions construct that configures AWS Verified Permissions
+   * with Cognito as an identity source.
+   *
+   * @param scope - The parent construct
+   * @param id - The construct ID
+   * @param props - Configuration properties for the VerifiedPermissions construct
+   * @memberof VerifiedPermissions
+   */
+  constructor(scope: Construct, id: string, props: VerifiedPermissionsProps) {
+    const {
+      identitySource,
+      description,
+      cedarJsonSchema,
+      namespace,
+      principalEntityType,
+      validateCedarSchema: validateSchema = true,
+      createDefaultAdminPolicy = true,
+      authenticatedRole,
+      validationSettings,
+      enableCloudTrail = false
+    } = props;
+
+    // Ensure that all required attributes are properly defined in the Cognito User Pool schema
+    try {
+      validateSchemaAttributes({
+        userPool: identitySource.userPool,
+        requiredAttributes: identitySource.requiredAttributes
+      });
+      if (validateSchema) {
+        validateCedarSchema(cedarJsonSchema);
+      }
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      throw new Error(`Schema validation error: ${errorMessage}`);
+    }
+
+    // Initialize the policy store with the provided Cedar schema
+    super(scope, id, {
+      validationSettings: {
+        mode: 'STRICT',
+        ...validationSettings
+      },
+      description: description || `Policy Store for ${namespace}`,
+      schema: {
+        cedarJson: JSON.stringify({
+          // Wrap the provided cedarJson in the namespace to avoid conflicts
+          [`${namespace}`]: cedarJsonSchema
+        })
+      }
+    });
+
+    this.namespace = namespace;
+
+    // Configure Cognito as an identity source for AWS Verified Permissions
+    // This links the user pool to the policy store, allowing user attributes to be used in policies
+    this.identitySource = new CfnIdentitySource(this, `${namespace}CognitoIdentitySource`, {
+      policyStoreId: this.attrPolicyStoreId,
+      principalEntityType: principalEntityType || `${namespace}::User`, // Default principal type if not specified
+      configuration: {
+        cognitoUserPoolConfiguration: {
+          userPoolArn: identitySource.userPool.userPoolArn,
+          // Only the specified clients can use this identity source
+          clientIds: identitySource.userPoolClients.map(
+            (client: UserPoolClient) => client.userPoolClientId
+          ),
+          groupConfiguration: { groupEntityType: `${namespace}::${identitySource.groupEntity || 'Group'}` }
+        }
+      }
+    });
+
+    // Attach policies to allow the role to call Verified Permissions authorization APIs
+    // These permissions are required for applications to check if an action is authorized
+    authenticatedRole.addToPolicy(new PolicyStatement({
+      actions: [
+        'verifiedpermissions:IsAuthorized',         // Check if a single action is authorized
+        'verifiedpermissions:IsAuthorizedWithToken', // Check authorization using a token
+        'verifiedpermissions:BatchIsAuthorized'      // Check if multiple actions are authorized
+      ],
+      resources: [this.attrArn] // Scope permissions to only this policy store
+    }));
+
+    // Add a default admin policy that grants full access to users with the "admin" role
+    // This is a common pattern to ensure administrators can always access all resources
+    if (createDefaultAdminPolicy) {
+      this.addStaticPolicy({
+        name: 'Admin',
+        description: '[DEFAULT] Allow administrators full access to all resources',
+        statement: `permit (principal, action, resource)
+                    when { principal in ${namespace}::${identitySource.groupEntity || 'Group'}::"${identitySource.userPool.userPoolId}|admin" };`
+      });
+    }
+
+    // Create default admin group if requested and not already created by the user
+    if (identitySource.createAdminGroup) {
+      identitySource.userPool.addGroup('AdminGroup', {
+        description: `[DEFAULT] ${namespace} Administrators group`,
+        groupName: 'admin',
+        precedence: 1
+      });
+    }
+
+    // Create default user group if requested and not already created by the user
+    if (identitySource.createUserGroup) {
+      identitySource.userPool.addGroup('UserGroup', {
+        description: `[DEFAULT] ${namespace} Users group`,
+        groupName: 'user',
+        precedence: 10
+      });
+
+      const postConfirmationTriggerLambda = new NodejsFunction(this, 'AddUserToUserGroupFunction', {
+        runtime: Runtime.NODEJS_LATEST,
+        handler: 'index.handler',
+        code: Code.fromAsset(path.join(__dirname, '/lambda/addUserToUserGroup')),
+        description: 'Add user to user group after cognito signup'
+      });
+
+      postConfirmationTriggerLambda.role?.attachInlinePolicy(
+        new Policy(this, 'PostConfirmationTriggerLambdaPolicy', {
+          statements: [
+            new PolicyStatement({
+              actions: ['cognito-idp:AdminAddUserToGroup'],
+              resources: [
+                `arn:aws:cognito-idp:${Stack.of(this).region}:${Stack.of(this).account}:userpool/${identitySource.userPool.userPoolId}`
+              ],
+              effect: Effect.ALLOW
+            })
+          ]
+        })
+      );
+
+      identitySource
+        .userPool
+        .addTrigger(UserPoolOperation.POST_CONFIRMATION, postConfirmationTriggerLambda);
+    }
+
+    // Create CloudTrail for logging authorization decisions
+    if (enableCloudTrail) {
+      new Trail(this, `${namespace}VAP`, {
+        sendToCloudWatchLogs: true,
+        cloudWatchLogGroup: new LogGroup(this, `${namespace}LogGroup`, {
+          logGroupName: `aws-cloudtrail-logs-${namespace}-avp`,
+          removalPolicy: RemovalPolicy.DESTROY
+        }),
+        trailName: `${namespace}VAPTrail`,
+        bucket: new Bucket(this, 'AVPCloudTrailBucket', {
+          encryption: BucketEncryption.S3_MANAGED,
+          removalPolicy: RemovalPolicy.DESTROY
+        }),
+        enableFileValidation: true
+      });
+    }
+
+    // Export the Policy Store ID as a CloudFormation output for reference by other stacks or resources
+    new CfnOutput(this, `${namespace}PolicyStoreId`, {
+      value: this.attrPolicyStoreId,
+      description: 'The ID of the AWS Verified Permissions Policy Store',
+      exportName: `${namespace}PolicyStoreId` // Makes it importable in other stacks
+    });
+  }
+
+  /**
+   * Adds a static Cedar policy to the policy store.
+   * Static policies are directly defined with Cedar policy language and are not tied to specific resources.
+   *
+   * @param props - Object containing policy configuration
+   * @returns The created CfnPolicy for further configuration if needed
+   */
+  public addStaticPolicy(props: StaticPolicyProps): CfnPolicy {
+    const { name, description, statement } = props;
+
+    // Create a new policy in the policy store with the provided Cedar statement
+    return new CfnPolicy(this, `${this.namespace}${name}Policy`, {
+      policyStoreId: this.attrPolicyStoreId,
+      definition: {
+        static: {
+          description,
+          statement // The Cedar policy language statement
+        }
+      }
+    });
+  }
+
+  /**
+   * Loads and adds multiple Cedar policies from JSON files in a specified directory path.
+   * Each policy file should be a .cedar file containing a JSON object with the following structure:
+   * ```json
+   * {
+   *   "name": "PolicyName", // Optional, defaults to filename without .cedar extension
+   *   "description": "Policy description", // Optional, defaults to "Policy from {filename}"
+   *   "statement": "permit(principal, action, resource) when {...};" // Required Cedar policy statement
+   * }
+   * ```
+   *
+   * @param directoryPath - The directory path containing Cedar policy files (.cedar extension)
+   * @throws Error if any file is not a .cedar file or fails to parse as JSON
+   * @example
+   * ```typescript
+   * // Load all policies from the ./policies directory
+   * verifiedPermissions.addStaticPoliciesFromPath('./policies');
+   * ```
+   */
+  public addStaticPoliciesFromPath(directoryPath: string): void {
+    const files = fs.readdirSync(directoryPath);
+    files.forEach((file: string) => {
+      if (!file.endsWith('.cedar')) {
+        throw new Error(`Policy ${file} is not a Cedar policy`);
+      }
+
+      const fullPath = `${directoryPath}/${file}`;
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      try {
+        // Parse the JSON content from the file
+        const policy = JSON.parse(content) as CedarPolicyFile;
+
+        if (!policy.statement) {
+          throw new Error(`Policy ${file} does not contain a required 'statement' property`);
+        }
+
+        this.addStaticPolicy({
+          name: policy.name || file.replace('.cedar', ''),
+          description: policy.description || `Policy from ${file}`,
+          statement: policy.statement
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to parse policy file ${file}: ${errorMessage}`);
+      }
+    });
+  }
+}

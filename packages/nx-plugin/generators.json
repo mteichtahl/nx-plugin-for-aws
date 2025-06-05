@@ -144,6 +144,12 @@
       "description": "The @aws/nx-plugin workspace preset.",
       "metric": "g20",
       "hidden": true
+    },
+    "ts#cloudscape-website#verified-permissions": {
+      "factory": "./src/cloudscape-website/verified-permissions/generator",
+      "schema": "./src/cloudscape-website/verified-permissions/schema.json",
+      "description": "An nx generator for AWS Verified Permissions that makes it easy to implement Attribute-Based Access Control (ABAC) in your applications using AWS Verified Permissions integrated with Amazon Cognito. This construct simplifies the implementation of fine-grained permissions based on user attributes, resource properties, and context.",
+      "metric": "g21"
     }
   }
 }

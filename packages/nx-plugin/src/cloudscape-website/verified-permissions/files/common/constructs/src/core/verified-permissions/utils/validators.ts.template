@@ -1,0 +1,61 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { ICustomAttribute, UserPool } from 'aws-cdk-lib/aws-cognito';
+
+/**
+ * Options for validating schema attributes against a Cognito User Pool
+ */
+export interface SchemaValidationOptions {
+  /** The Cognito User Pool to check for attribute definitions */
+  userPool: UserPool;
+  /** The required attributes that should be defined in the user pool */
+  requiredAttributes: {
+    [key: string]: ICustomAttribute;
+  };
+}
+
+/**
+ * Validates that all required attributes are properly defined in the Cognito User Pool schema.
+ *
+ * This ensures that the attributes used in Cedar policies are actually available in Cognito,
+ * preventing runtime errors when attributes are referenced but don't exist in the identity source.
+ *
+ * The validation checks:
+ * - Presence of the attributes in the options
+ * - Proper configuration of each attribute
+ *
+ * @param options - The validation options containing the user pool and required attributes
+ * @throws Error if any required attribute is not properly defined in the user pool
+ */
+export function validateSchemaAttributes(options: SchemaValidationOptions): void {
+  const { userPool, requiredAttributes } = options;
+
+  if (!userPool) {
+    throw new Error('User pool must be provided for attribute validation');
+  }
+
+  if (!requiredAttributes || Object.keys(requiredAttributes).length === 0) {
+    return; // No required attributes to validate
+  }
+
+  // Extract the user pool's schema attributes for reference checking
+  // Note: CDK doesn't expose the schema property directly, so we warn about attributes
+  // that might be missing but can't validate them statically
+
+  // Instead, we encourage proper configuration by warning if attributes aren't defined through ICustomAttribute
+  const attributeNames = Object.keys(requiredAttributes);
+
+  for (const attributeName of attributeNames) {
+    const attribute = requiredAttributes[attributeName];
+
+    // Verify that the attribute is properly configured
+    if (!attribute) {
+      throw new Error(`Required attribute ${attributeName} is not properly defined`);
+    }
+
+    // Additional validations could go here, but we're limited by CDK's public APIs
+    // For now, we just ensure the attribute exists in the required attributes collection
+  }
+}

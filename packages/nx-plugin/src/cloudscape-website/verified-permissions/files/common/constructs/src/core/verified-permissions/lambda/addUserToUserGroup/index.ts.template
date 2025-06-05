@@ -1,0 +1,67 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
+ * Lambda function to add a newly confirmed Cognito user to a default user group.
+ *
+ * This function is triggered by the Cognito POST_CONFIRMATION event and automatically
+ * assigns the new user to the specified group (default: 'user').
+ */
+
+// @ts-expect-error leverage lambda sdk
+import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
+
+/**
+ * Lambda handler function for the Cognito POST_CONFIRMATION trigger
+ *
+ * @param event - The Cognito event containing user information
+ * @param context - The Lambda execution context
+ * @param callback - The callback function to signal completion
+ * @returns The original event on success or an error object on failure
+ */
+export async function handler(event: any, context: any, callback: any) {
+  const { userName, userPoolId } = event;
+
+  try {
+    // Assign the user to a specific group
+    await addUserToGroup({
+      userPoolId,
+      username: userName,
+      groupName: 'user'
+    });
+
+    // Return success
+    return callback(null, event);
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: `Internal Server Error ${error}`
+      })
+    };
+  }
+}
+
+/**
+ * Adds a Cognito user to a specified group
+ *
+ * @param params - Parameters for the group assignment
+ * @param params.userPoolId - The ID of the Cognito User Pool
+ * @param params.username - The username of the user to add to the group
+ * @param params.groupName - The name of the group to add the user to
+ * @returns Promise that resolves when the user has been added to the group
+ */
+async function addUserToGroup({ userPoolId, username, groupName } :
+  { userPoolId: string, username: string, groupName: string }
+) {
+  const params = {
+    GroupName: groupName,
+    UserPoolId: userPoolId,
+    Username: username
+  };
+
+  const client = new CognitoIdentityProviderClient({});
+  const command = new AdminAddUserToGroupCommand(params);
+  await client.send(command);
+}
