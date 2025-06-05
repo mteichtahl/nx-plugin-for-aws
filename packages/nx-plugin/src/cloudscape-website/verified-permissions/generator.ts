@@ -64,7 +64,6 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
     'core',
     'verified-permissions',
   );
-
   const templateValues = {
     namespace,
     principalEntityType,
