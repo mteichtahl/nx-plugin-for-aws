@@ -43,7 +43,9 @@ describe('ts#cloudscape-website#verified-permissions generator', () => {
       export function App() {
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <CognitoAuth>
+              <RouterProvider router={router} />
+            </CognitoAuth>
           </RuntimeConfigProvider>
         );
       }

@@ -206,8 +206,6 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
     {},
   );
 
-  await addDependencies();
-
   const mainTsxPath = joinPathFragments(appRoot, 'main.tsx');
   addSingleImport(
     tree,
