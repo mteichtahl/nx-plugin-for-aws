@@ -41,8 +41,12 @@ import {
   SyntaxKind,
   InterfaceDeclaration,
   JsxElement,
+  PropertyAssignment,
+  CallExpression,
+  ObjectLiteralExpression,
+  Expression,
+  NodeArray,
 } from 'typescript';
-import { withVersions } from '../../utils/versions';
 
 export const TS_CLOUDSCAPE_WEBSITE_VERIFIED_PERMISSIONS_GENERATOR_INFO: NxGeneratorInfo =
   getGeneratorInfo(__filename);
@@ -196,7 +200,7 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
   );
 
   // install dependencies into- @aws-sdk/client-verifiedpermissions
-  const addDependencies = addDependenciesToPackageJson(
+  addDependenciesToPackageJson(
     tree,
     {
       '@aws-sdk/client-verifiedpermissions': '^3.39.0',
@@ -224,6 +228,115 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
         [createJsxElementFromIdentifier('VerifiedPermissions', node.children)],
         node.closingElement,
       ),
+  );
+
+  // add authorization to the welcome page
+  const welcomePagePath = joinPathFragments(
+    appRoot,
+    'routes',
+    'welcome',
+    'index.tsx',
+  );
+  addSingleImport(
+    tree,
+    welcomePagePath,
+    'authLoader',
+    '../../components/VerifiedPermissions/authLoader',
+  );
+
+  // update the page loader for the welcome page
+  replace(
+    tree,
+    welcomePagePath,
+    'CallExpression:has(ObjectLiteralExpression:has(PropertyAssignment:has(Identifier[name="component"])))',
+    (node: CallExpression) => {
+      const arg0 = node.arguments[0];
+
+      // Check if the first argument is an object literal expression
+      if (!arg0 || arg0.kind !== SyntaxKind.ObjectLiteralExpression) {
+        return node; // Return unchanged if no valid argument found
+      }
+
+      // Cast to ObjectLiteralExpression now that we've verified the kind
+      const objectLiteral = arg0 as ObjectLiteralExpression;
+
+      // Create the new loader property
+      const loaderProperty = factory.createPropertyAssignment(
+        factory.createIdentifier('loader'),
+        factory.createArrowFunction(
+          [factory.createToken(SyntaxKind.AsyncKeyword)],
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createObjectBindingPattern([
+                factory.createBindingElement(
+                  undefined,
+                  undefined,
+                  factory.createIdentifier('context'),
+                  undefined,
+                ),
+              ]),
+              undefined,
+              undefined,
+              undefined,
+            ),
+          ],
+          undefined,
+          factory.createToken(SyntaxKind.EqualsGreaterThanToken),
+          factory.createAwaitExpression(
+            factory.createCallExpression(
+              factory.createIdentifier('authLoader'),
+              undefined,
+              [
+                factory.createObjectLiteralExpression(
+                  [
+                    factory.createPropertyAssignment(
+                      factory.createIdentifier('action'),
+                      factory.createStringLiteral('View'),
+                    ),
+                    factory.createPropertyAssignment(
+                      factory.createIdentifier('resource'),
+                      factory.createStringLiteral('Page::index'),
+                    ),
+                    factory.createShorthandPropertyAssignment(
+                      factory.createIdentifier('context'),
+                      undefined,
+                    ),
+                  ],
+                  false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Get the existing properties
+      const existingProperties = objectLiteral.properties;
+
+      // Create an updated object literal with all existing properties plus the new loader property
+      const updatedObjectLiteral = factory.updateObjectLiteralExpression(
+        objectLiteral,
+        [
+          ...existingProperties.filter(
+            (prop) =>
+              prop.kind === SyntaxKind.PropertyAssignment &&
+              (prop as PropertyAssignment).name.getText() !== 'loader',
+          ),
+          loaderProperty,
+        ],
+      );
+
+      // Update the call expression with the updated object literal
+      return factory.updateCallExpression(
+        node,
+        node.expression,
+        node.typeArguments,
+        [updatedObjectLiteral],
+      );
+    },
   );
 
   await addGeneratorMetricsIfApplicable(tree, [

@@ -20,7 +20,6 @@ import {
   QueryClient,
   QueryClientProvider,
   useQuery,
-  useQueryClient,
   UseQueryResult,
 } from '@tanstack/react-query';
 import { useRuntimeConfig } from '../../hooks/useRuntimeConfig';
@@ -90,11 +89,7 @@ const PermissionsContext = createContext<PermissionsContext | undefined>(
  * @returns {JSX.Element} Provider component with permissions context
  */
 export const VerifiedPermissions = ({
-  // policyStoreId,
-  // identityPoolId,
-  // region,
   children,
-  // namespace: _namespace,
   queryClient,
 }: PermissionsProviderType) => {
   // Access authentication state from react-oidc-context
@@ -304,3 +299,5 @@ export const usePermissions = (): PermissionsContext => {
 
   return permissions;
 };
+
+export default VerifiedPermissions;
