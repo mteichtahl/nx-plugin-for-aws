@@ -1,0 +1,306 @@
+/**
+ * Permissions Module
+ *
+ * This module provides an interface to AWS Verified Permissions for implementing
+ * attribute-based access control (ABAC). It uses React Context to provide
+ * permission checking capabilities throughout the application.
+ *
+ * The implementation leverages AWS SDK for JavaScript v3 to connect to Verified Permissions
+ * and TanStack Query (React Query) for efficient caching of authorization results.
+ */
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  VerifiedPermissionsClient,
+  IsAuthorizedWithTokenCommand,
+  ContextDefinition,
+} from '@aws-sdk/client-verifiedpermissions';
+import { fromCognitoIdentityPool } from '@aws-sdk/credential-providers';
+import { useAuth } from 'react-oidc-context';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  useQueryClient,
+  UseQueryResult,
+} from '@tanstack/react-query';
+import { useRuntimeConfig } from '../../hooks/useRuntimeConfig';
+
+/**
+ * Extended query result type that includes the authorization decision
+ */
+type IsAuthorizedQuery = Omit<UseQueryResult<boolean, Error>, 'data'> & {
+  decision: boolean;
+};
+
+/**
+ * Interface for the permissions context value
+ */
+type PermissionsContext = {
+  isAuthorized: (props: IsAuthorizedProps) => IsAuthorizedQuery;
+};
+
+/**
+ * Props for the isAuthorized function
+ * @property {string} action - The action to check permission for (e.g., "ReadResource")
+ * @property {string} resource - The resource to check in format "ResourceType::resourceId"
+ * @property {Object} [options] - Optional configuration parameters
+ * @property {boolean} [options.debug] - Enable debug logging of permission checks
+ */
+type IsAuthorizedProps = {
+  action: string;
+  resource: string;
+  context?: ContextDefinition | undefined;
+  options?: { debug?: boolean };
+};
+
+/**
+ * Props for the PermissionsProvider component
+ * @property {string} policyStoreId - AWS Verified Permissions policy store ID
+ * @property {string} identityPoolId - AWS Cognito Identity Pool ID
+ * @property {string} region - AWS region where resources are deployed
+ * @property {React.ReactNode} children - Child components to render
+ * @property {string} namespace - The Cedar policy namespace (e.g., "AbacApp")
+ * @property {QueryClient} [queryClient] - Optional QueryClient for React Query
+ */
+type PermissionsProviderType = {
+  // policyStoreId: string;
+  // identityPoolId: string;
+  // region: string;
+  children: React.ReactNode;
+  // namespace: string;
+  queryClient?: QueryClient;
+};
+
+/**
+ * React Context for permissions management
+ */
+const PermissionsContext = createContext<PermissionsContext | undefined>(
+  undefined,
+);
+
+/**
+ * Provider component for AWS Verified Permissions authorization.
+ *
+ * This component:
+ * 1. Sets up a connection to AWS Verified Permissions
+ * 2. Provides the isAuthorized function to child components
+ * 3. Handles caching of authorization decisions with TanStack Query
+ *
+ * @param {PermissionsProviderType} props - Provider configuration
+ * @returns {JSX.Element} Provider component with permissions context
+ */
+export const VerifiedPermissions = ({
+  // policyStoreId,
+  // identityPoolId,
+  // region,
+  children,
+  // namespace: _namespace,
+  queryClient,
+}: PermissionsProviderType) => {
+  // Access authentication state from react-oidc-context
+  const auth = useAuth();
+  const runtimeConfig = useRuntimeConfig();
+
+  const _namespace = runtimeConfig.verifiedPermissionsProps.namespace;
+  const region = runtimeConfig.cognitoProps.region;
+  const identityPoolId = runtimeConfig.cognitoProps.identityPoolId;
+  const policyStoreId = runtimeConfig.verifiedPermissionsProps.policyStoreId;
+
+  // Store the Verified Permissions client instance once created
+  const [client, setClient] = useState<VerifiedPermissionsClient | null>(null);
+  const [namespace] = useState(_namespace);
+
+  /**
+   * Initialize the AWS Verified Permissions client when authentication state changes
+   */
+  useEffect(() => {
+    const setupClient = async () => {
+      if (!auth.isAuthenticated) return;
+
+      // Extract tokens and identity information from authenticated user
+      const idToken = auth.user?.id_token;
+      const userPoolId = auth.user?.profile?.iss?.split('/').pop();
+      const identityProvider = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
+
+      // Set up AWS credentials using Cognito Identity Pool federation
+      if (!idToken || !userPoolId || !identityPoolId) return;
+
+      const credentials = fromCognitoIdentityPool({
+        identityPoolId,
+        userIdentifier: idToken,
+        logins: { [identityProvider]: idToken },
+        clientConfig: { region },
+      });
+
+      // Create the Verified Permissions client with federated credentials
+      const vpClient = new VerifiedPermissionsClient({
+        region,
+        credentials: credentials,
+      });
+
+      setClient(vpClient);
+    };
+
+    setupClient();
+  }, [
+    auth.isAuthenticated,
+    auth.user?.id_token,
+    auth.user?.profile?.iss,
+    identityPoolId,
+    region,
+  ]);
+
+  /**
+   * Perform an authorization check against AWS Verified Permissions
+   *
+   * @param {Object} props - Authorization check parameters
+   * @param {string} props.action - The action to check (e.g., "ReadResource")
+   * @param {string} props.resource - The resource in format "ResourceType::resourceId"
+   * @param {boolean} [props.debug] - Enable debug logging
+   * @returns {Promise<boolean>} True if authorized, false otherwise
+   */
+  const checkAuthorization = async (props: {
+    action: string;
+    resource: string;
+    context?: ContextDefinition;
+    debug?: boolean;
+  }) => {
+    if (
+      !client ||
+      !auth.user?.id_token ||
+      !auth.isAuthenticated ||
+      !policyStoreId
+    )
+      return false;
+
+    const { action, debug = false, resource: _resource, context } = props;
+    // Split the resource string into type and ID (e.g., "Document::report1")
+    const [resource, resourceId] = _resource.split('::');
+
+    try {
+      // Create the authorization command in Cedar policy format
+      const command = new IsAuthorizedWithTokenCommand({
+        // Use the ID token for principal identification
+        identityToken: auth.user?.id_token,
+        // Policy store to check against
+        policyStoreId,
+        // Format the action as "Namespace::Action::actionName"
+        action: {
+          actionType: `${namespace}::Action`,
+          actionId: `${action}`,
+        },
+        // Format the resource as "Namespace::ResourceType::resourceId"
+        resource: {
+          entityType: `${namespace}::${resource}`,
+          entityId: `${resourceId}`,
+        },
+        ...(context && { context }),
+      });
+
+      // Send the authorization request to AWS Verified Permissions
+      const result = await client.send(command);
+
+      // Log detailed result if debug is enabled
+      if (debug) console.info(JSON.stringify(result, null, '\t'));
+
+      // Return true if the decision is ALLOW, false otherwise
+      return result.decision === 'ALLOW';
+    } catch (error) {
+      console.error('Authorization check failed:', error);
+      return false;
+    }
+  };
+
+  /**
+   * Optimized isAuthorized function using TanStack Query for caching.
+   *
+   * This function:
+   * 1. Checks if the user is authorized for a specific action on a resource
+   * 2. Caches results to minimize API calls to AWS Verified Permissions
+   * 3. Refreshes stale results after a configurable time period
+   *
+   * @param {IsAuthorizedProps} props - Authorization check parameters
+   * @returns {IsAuthorizedQuery} Query result with authorization decision
+   */
+  const isAuthorized = (props: IsAuthorizedProps): IsAuthorizedQuery => {
+    const { action, resource, options, context } = props;
+
+    // Use TanStack Query for authorization check with caching
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const query = useQuery({
+      // Cache key based on action, resource, and token (invalidates when any changes)
+      queryKey: ['authorization', action, resource, auth.user?.id_token],
+      // Function to execute when cache is invalid or missing
+      queryFn: async () => {
+        // Skip query execution if client is not initialized or resource is not provided
+        if (!client || !resource) return false;
+        return await checkAuthorization({
+          action,
+          resource,
+          debug: options?.debug,
+          context,
+        });
+      },
+      // Only run the query if we have all required data
+      enabled: !!client && !!auth.user?.id_token && !!resource,
+      // Cache results for 2 minutes before considering them stale
+      staleTime: 1000 * 60 * 2, // 5 minutes
+      // Retry failed authorization checks a limited number of times
+      retry: (failureCount: number) => {
+        return failureCount < 2;
+      },
+    });
+
+    // Return the query result with the decision field for easier access
+    return {
+      ...query,
+      decision: query.data || false,
+    };
+  };
+
+  // Render the provider with QueryClientProvider for React Query
+  return (
+    <QueryClientProvider client={queryClient || new QueryClient()}>
+      <PermissionsContext.Provider value={{ isAuthorized }}>
+        {children}
+      </PermissionsContext.Provider>
+    </QueryClientProvider>
+  );
+};
+
+/**
+ * Custom hook to access permission functionality.
+ *
+ * This hook provides access to the isAuthorized function from any component
+ * within the PermissionsProvider's subtree.
+ *
+ * @example
+ * ```tsx
+ * function MyProtectedComponent() {
+ *   const { isAuthorized } = usePermissions();
+ *   const { decision, isLoading } = isAuthorized({
+ *     action: "ReadResource",
+ *     resource: "Document::financial-report"
+ *   });
+ *
+ *   if (isLoading) return <Spinner />;
+ *   if (!decision) return <AccessDenied />;
+ *
+ *   return <YourComponent />;
+ * }
+ * ```
+ *
+ * @returns {PermissionsContext} Object with isAuthorized function
+ * @throws {Error} If used outside of a PermissionsProvider
+ */
+export const usePermissions = (): PermissionsContext => {
+  // Get permissions context
+  const permissions = useContext(PermissionsContext);
+
+  // Throw error if used outside of PermissionsProvider
+  if (!permissions) {
+    throw new Error('usePermissions must be used within a PermissionsProvider');
+  }
+
+  return permissions;
+};

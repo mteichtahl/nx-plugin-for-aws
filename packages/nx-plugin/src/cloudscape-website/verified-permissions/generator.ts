@@ -6,6 +6,7 @@ import {
   GeneratorCallback,
   OverwriteStrategy,
   Tree,
+  addDependenciesToPackageJson,
   generateFiles,
   installPackagesTask,
   joinPathFragments,
@@ -27,12 +28,21 @@ import {
   TYPE_DEFINITIONS_DIR,
 } from '../../utils/shared-constructs-constants';
 import {
+  addSingleImport,
   addStarExport,
+  createJsxElement,
+  createJsxElementFromIdentifier,
   prependStatements,
   query,
   replace,
 } from '../../utils/ast';
-import { factory, SyntaxKind, InterfaceDeclaration } from 'typescript';
+import {
+  factory,
+  SyntaxKind,
+  InterfaceDeclaration,
+  JsxElement,
+} from 'typescript';
+import { withVersions } from '../../utils/versions';
 
 export const TS_CLOUDSCAPE_WEBSITE_VERIFIED_PERMISSIONS_GENERATOR_INFO: NxGeneratorInfo =
   getGeneratorInfo(__filename);
@@ -41,15 +51,18 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
   tree: Tree,
   options: TsCloudscapeWebsiteVerifiedPermissionsGeneratorSchema,
 ): Promise<GeneratorCallback> => {
-  const principalEntityType = options.principalEntity;
-  const namespace = options.namespace;
+  const templateValues = {
+    namespace: options.namespace,
+    principalEntityType: options.principalEntity,
+    groupEntity: options.groupEntity,
+  };
 
-  const srcRoot = readProjectConfigurationUnqualified(
+  const appRoot = readProjectConfigurationUnqualified(
     tree,
     options.project,
   ).sourceRoot;
 
-  const sourceTemplates = joinPathFragments(
+  const sourceSharedTemplates = joinPathFragments(
     __dirname,
     'files',
     SHARED_CONSTRUCTS_DIR,
@@ -57,22 +70,20 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
     'core',
     'verified-permissions',
   );
-  const destinationPath = joinPathFragments(
+  const sharedDestinationPath = joinPathFragments(
     PACKAGES_DIR,
     SHARED_CONSTRUCTS_DIR,
     'src',
     'core',
     'verified-permissions',
   );
-  const templateValues = {
-    namespace,
-    principalEntityType,
-  };
-
-  await sharedConstructsGenerator(tree);
-  await runtimeConfigGenerator(tree, {
-    project: options.project,
-  });
+  const appSharedTemplates = joinPathFragments(
+    __dirname,
+    'files',
+    'app',
+    'components',
+    'VerifiedPermissions',
+  );
 
   // Add ICognitoProps interface and update IRuntimeConfig
   const runtimeConfigPath = joinPathFragments(
@@ -81,6 +92,12 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
     'src',
     'runtime-config.ts',
   );
+
+  await sharedConstructsGenerator(tree);
+  await runtimeConfigGenerator(tree, {
+    project: options.project,
+  });
+
   // Check if ICognitoProps interface exists
   const existingCognitoProps = query(
     tree,
@@ -150,14 +167,65 @@ export const tsCloudscapeWebsiteVerifiedPermissionsGenerator = async (
     );
   }
 
-  generateFiles(tree, sourceTemplates, destinationPath, templateValues, {
-    overwriteStrategy: OverwriteStrategy.KeepExisting,
-  });
+  generateFiles(
+    tree,
+    sourceSharedTemplates,
+    sharedDestinationPath,
+    templateValues,
+    {
+      overwriteStrategy: OverwriteStrategy.KeepExisting,
+    },
+  );
 
+  // add exports for verified permissions
   addStarExport(
     tree,
-    joinPathFragments(destinationPath, '..', 'index.ts'),
+    joinPathFragments(sharedDestinationPath, '..', 'index.ts'),
     './verified-permissions/index.js',
+  );
+
+  // copy over the files into the app
+  generateFiles(
+    tree,
+    appSharedTemplates,
+    joinPathFragments(appRoot, 'components/VerifiedPermissions'),
+    options,
+    {
+      overwriteStrategy: OverwriteStrategy.KeepExisting,
+    },
+  );
+
+  // install dependencies into- @aws-sdk/client-verifiedpermissions
+  const addDependencies = addDependenciesToPackageJson(
+    tree,
+    {
+      '@aws-sdk/client-verifiedpermissions': '^3.39.0',
+      '@aws-sdk/credential-providers': '^3.39.0',
+      '@tanstack/react-query': '^5.79.0',
+    },
+    {},
+  );
+
+  await addDependencies();
+
+  const mainTsxPath = joinPathFragments(appRoot, 'main.tsx');
+  addSingleImport(
+    tree,
+    mainTsxPath,
+    'VerifiedPermissions',
+    './components/VerifiedPermissions',
+  );
+
+  replace(
+    tree,
+    mainTsxPath,
+    'JsxElement[openingElement.tagName.name="CognitoAuth"]',
+    (node: JsxElement) =>
+      createJsxElement(
+        node.openingElement,
+        [createJsxElementFromIdentifier('VerifiedPermissions', node.children)],
+        node.closingElement,
+      ),
   );
 
   await addGeneratorMetricsIfApplicable(tree, [

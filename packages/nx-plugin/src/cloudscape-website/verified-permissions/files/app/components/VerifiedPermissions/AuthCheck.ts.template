@@ -1,0 +1,90 @@
+/**
+ * AuthCheck Component
+ *
+ * A declarative component for conditional rendering based on user permissions.
+ * This component wraps content that should only be displayed when a user has
+ * specific permissions to perform an action on a resource.
+ *
+ * It integrates with the Permissions system to check authorization and handles
+ * loading and unauthorized states with customizable components.
+ */
+import React from 'react';
+import { usePermissions } from './Permissions.js';
+import { ContextDefinition } from '@aws-sdk/client-verifiedpermissions';
+
+/**
+ * Conditionally renders children based on authorization results.
+ *
+ * @example Basic Usage
+ * ```tsx
+ * <AuthCheck
+ *   action="ReadResource"
+ *   resource="Document::financial-report"
+ *   fallbackComponent={<AccessDenied />}
+ * >
+ *   <FinancialReport />
+ * </AuthCheck>
+ * ```
+ *
+ * @example With Loading State
+ * ```tsx
+ * <AuthCheck
+ *   action="UpdateResource"
+ *   resource="Project::marketing-campaign"
+ *   loadingComponent={<Spinner />}
+ *   fallbackComponent={<NotAuthorized />}
+ * >
+ *   <EditForm />
+ * </AuthCheck>
+ * ```
+ *
+ * @param props - Component properties
+ * @param props.action - The action to check permission for (e.g., "ReadResource")
+ * @param props.resource - The resource to check in format "ResourceType::resourceId"
+ * @param props.options - Optional configuration for permission check
+ * @param props.children - Content to render when permission is granted
+ * @param props.loadingComponent - Content to display during permission check
+ * @param props.fallbackComponent - Content to display when permission is denied
+ * @returns The children when authorized, loading component when checking, or fallback when unauthorized
+ */
+export const AuthCheck = ({
+  action,
+  resource: _resource,
+  options,
+  children,
+  context,
+  loadingComponent,
+  fallbackComponent
+}: {
+  action: string;
+  resource: string;
+  options?: { debug?: boolean };
+  children: React.ReactNode;
+  context?: ContextDefinition | undefined;
+  loadingComponent?: React.ReactNode | undefined;
+  fallbackComponent?: React.ReactNode | undefined;
+}) => {
+  // Access the permission checking functionality
+  const { isAuthorized } = usePermissions();
+
+  // Check if the user is authorized for this action on this resource
+  const { decision, isLoading } = isAuthorized({ action, resource: _resource, options, context });
+
+  // Show loading component while permission check is in progress
+  if (isLoading) {
+    return loadingComponent || null;
+  }
+
+  // Show fallback component if permission was denied
+  if (!decision) {return fallbackComponent ? fallbackComponent : null;}
+
+  // When authorized, render children according to React's rendering rules
+
+  // For single child, return it directly (React optimization)
+  if (React.Children.count(children) === 1) {
+    return React.Children.only(children);
+  }
+
+  // For multiple children, map them safely
+  return React.Children.map(children, child => child);
+};

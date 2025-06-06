@@ -6,4 +6,5 @@ export interface TsCloudscapeWebsiteVerifiedPermissionsGeneratorSchema {
   project: string;
   namespace?: string;
   principalEntity?: string;
+  groupEntity?: string;
 }
