@@ -10,7 +10,7 @@ import Link from '@components/link.astro';
 import RunGenerator from '@components/run-generator.astro';
 import GeneratorParameters from '@components/generator-parameters.astro';
 
-O Plugin AWS para Nx fornece um gerador para integrar rapidamente sua <Link path="guides/trpc">API tRPC</Link> com um site React. Ele configura toda a infraestrutura necessária para conectar aos seus backends tRPC, incluindo suporte a autenticação AWS IAM e Cognito, além de tratamento de erros adequado. A integração oferece segurança de tipos completa de ponta a ponta entre seu frontend e backend(s) tRPC.
+O Plugin AWS para Nx fornece um gerador para integrar rapidamente sua <Link path="guides/trpc">API tRPC</Link> com um site React. Ele configura toda a infraestrutura necessária para conectar aos seus backends tRPC, incluindo suporte a autenticação AWS IAM e Cognito, além de tratamento adequado de erros. A integração oferece segurança de tipos completa de ponta a ponta entre seu frontend e backend(s) tRPC.
 
 ## Pré-requisitos
 
@@ -18,7 +18,7 @@ Antes de usar este gerador, certifique-se que sua aplicação React possui:
 
 1. Um arquivo `main.tsx` que renderiza sua aplicação
 2. Um elemento JSX `<App/>` onde o provider tRPC será injetado automaticamente
-3. Um backend tRPC funcional (gerado usando o gerador de backend tRPC)
+3. Uma API tRPC funcional (gerada usando o gerador de API tRPC)
 4. Cognito Auth adicionado via <Link path="/guides/cloudscape-website-auth">gerador `ts#cloudscape-website-auth`</Link> se conectando a uma API que usa autenticação Cognito ou IAM
 
 <details>
@@ -41,7 +41,7 @@ root.render(
 
 </details>
 
-## Utilização
+## Uso
 
 ### Executar o Gerador
 
@@ -59,19 +59,15 @@ O gerador cria a seguinte estrutura em sua aplicação React:
 
 - src
   - components
-    - TrpcClients
-      - index.tsx
-      - TrpcProvider.tsx Provider reutilizável para múltiplas APIs tRPC
-      - TrpcApis.tsx Objeto contendo todas as conexões de API tRPC
-      - TrpcClientProviders.tsx Configura os clients tRPC e vinculações aos schemas do backend
+    - \<ApiName>ClientProvider.tsx Configura os clients tRPC e vinculações aos schemas do backend. ApiName será resolvido para o nome da API
     - QueryClientProvider.tsx Provider do client TanStack React Query
   - hooks
     - useSigV4.tsx Hook para assinar requisições HTTP com SigV4 (apenas IAM)
-    - use\<ApiName>.tsx Hook para a API de backend específica. ApiName será resolvido para o nome da API
+    - use\<ApiName>.tsx Hook para a API de backend específica
 
 </FileTree>
 
-Adicionalmente, instala as dependências necessárias:
+Além disso, instala as dependências necessárias:
 
   - `@trpc/client`
   - `@trpc/tanstack-react-query`
@@ -91,10 +87,10 @@ import { useMyApi } from './hooks/useMyApi';
 function MyComponent() {
   const trpc = useMyApi();
 
-  // Exemplo de consulta
+  // Exemplo de query
   const { data, isLoading, error } = useQuery(trpc.users.list.queryOptions());
 
-  // Exemplo de mutação
+  // Exemplo de mutation
   const mutation = useMutation(trpc.users.create.mutationOptions());
 
   const handleCreate = () => {
@@ -118,7 +114,7 @@ function MyComponent() {
 
 ### Tratamento de Erros
 
-A integração inclui tratamento de erros integrado que processa adequadamente erros tRPC:
+A integração inclui tratamento de erros interno que processa adequadamente erros tRPC:
 
 ```tsx {4, 6}
 function MyComponent() {
@@ -129,9 +125,9 @@ function MyComponent() {
   if (error) {
     return (
       <div>
-        <h2>Error occurred:</h2>
+        <h2>Ocorreu um erro:</h2>
         <p>{error.message}</p>
-        {error.data?.code && <p>Code: {error.data.code}</p>}
+        {error.data?.code && <p>Código: {error.data.code}</p>}
       </div>
     );
   }
@@ -178,7 +174,7 @@ function UserList() {
 
 ### Atualizações Otimistas
 
-Use atualizações otimistas para melhor experiência do usuário:
+Use atualizações otimistas para melhorar a experiência do usuário:
 
 ```tsx {15-17,20-22,28-31}
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
@@ -221,7 +217,7 @@ function UserList() {
       {users.map((user) => (
         <li key={user.id}>
           {user.name}
-          <button onClick={() => deleteMutation.mutate(user.id)}>Delete</button>
+          <button onClick={() => deleteMutation.mutate(user.id)}>Excluir</button>
         </li>
       ))}
     </ul>
@@ -282,7 +278,7 @@ function UserList() {
 
       {hasNextPage && (
         <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-          {isFetchingNextPage ? 'Loading...' : 'Load More'}
+          {isFetchingNextPage ? 'Carregando...' : 'Carregar Mais'}
         </button>
       )}
     </div>
@@ -312,10 +308,10 @@ function UserForm() {
 }
 ```
 
-Os tipos são inferidos automaticamente das definições do router e schema do backend, garantindo que quaisquer mudanças na API sejam imediatamente refletidas no código frontend sem necessidade de build.
+Os tipos são inferidos automaticamente do router e definições de schema do backend, garantindo que quaisquer mudanças na API sejam imediatamente refletidas no código frontend sem necessidade de build.
 
 ## Mais Informações
 
 Para mais informações, consulte a [documentação tRPC TanStack React Query](https://trpc.io/docs/client/tanstack-react-query/usage).
 
-Você também pode consultar diretamente a [documentação TanStack Query](https://tanstack.com/query/v5).
+Você também pode consultar diretamente a [documentação do TanStack Query](https://tanstack.com/query/v5).

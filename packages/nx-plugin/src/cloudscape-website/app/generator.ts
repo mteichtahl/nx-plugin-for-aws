@@ -313,9 +313,11 @@ export async function tsCloudScapeWebsiteGenerator(
     addDestructuredImport(
       tree,
       viteConfigPath,
-      ['TanStackRouterVite'],
+      ['tanstackRouter'],
       '@tanstack/router-plugin/vite',
     );
+
+    addDestructuredImport(tree, viteConfigPath, ['resolve'], 'path');
 
     addSingleImport(
       tree,
@@ -365,12 +367,39 @@ export async function tsCloudScapeWebsiteGenerator(
               'plugins',
               factory.createArrayLiteralExpression(
                 [
-                  ...pluginsConfig.elements,
                   factory.createCallExpression(
-                    factory.createIdentifier('TanStackRouterVite'),
+                    factory.createIdentifier('tanstackRouter'),
                     undefined,
-                    [],
+                    [
+                      factory.createObjectLiteralExpression([
+                        factory.createPropertyAssignment(
+                          factory.createIdentifier('routesDirectory'),
+                          factory.createCallExpression(
+                            factory.createIdentifier('resolve'),
+                            undefined,
+                            [
+                              factory.createIdentifier('__dirname'),
+                              factory.createStringLiteral('src/routes'),
+                            ],
+                          ),
+                        ),
+                        factory.createPropertyAssignment(
+                          factory.createIdentifier('generatedRouteTree'),
+                          factory.createCallExpression(
+                            factory.createIdentifier('resolve'),
+                            undefined,
+                            [
+                              factory.createIdentifier('__dirname'),
+                              factory.createStringLiteral(
+                                'src/routeTree.gen.ts',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    ],
                   ),
+                  ...pluginsConfig.elements,
                   factory.createCallExpression(
                     factory.createIdentifier('tsconfigPaths'),
                     undefined,
@@ -449,6 +478,7 @@ export async function tsCloudScapeWebsiteGenerator(
       },
     }),
   );
+
   addDependenciesToPackageJson(
     tree,
     withVersions([
@@ -457,7 +487,13 @@ export async function tsCloudScapeWebsiteGenerator(
       '@cloudscape-design/global-styles',
       '@tanstack/react-router',
     ]),
-    withVersions(['@tanstack/router-plugin', 'vite-tsconfig-paths']),
+    withVersions([
+      '@tanstack/router-plugin',
+      '@tanstack/router-generator',
+      '@tanstack/virtual-file-routes',
+      '@tanstack/router-utils',
+      'vite-tsconfig-paths',
+    ]),
   );
 
   await addGeneratorMetricsIfApplicable(tree, [

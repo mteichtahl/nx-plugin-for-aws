@@ -80,7 +80,7 @@ exports[`cognito-auth generator > should generate files > user-identity 1`] = `
 "import {
   IdentityPool,
   UserPoolAuthenticationProvider,
-} from '@aws-cdk/aws-cognito-identitypool-alpha';
+} from 'aws-cdk-lib/aws-cognito-identitypool';
 import { CfnOutput, Duration, Lazy, Stack } from 'aws-cdk-lib';
 import {
   AccountRecovery,
@@ -435,12 +435,14 @@ import RuntimeConfigProvider from './components/RuntimeConfig';
 import { RuntimeConfigProvider } from './components/RuntimeConfig';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 
-export function App() {
+export function Main() {
+  const App = () => <RouterProvider router={router} />;
+
   return (
     <RuntimeConfigProvider>
       <CognitoAuth>
         <RuntimeConfigProvider>
-          <RouterProvider router={router} />
+          <App />
         </RuntimeConfigProvider>
       </CognitoAuth>
     </RuntimeConfigProvider>

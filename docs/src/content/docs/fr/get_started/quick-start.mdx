@@ -13,10 +13,10 @@ import InstallCommand from '@components/install-command.astro';
 import RunGenerator from '@components/run-generator.astro';
 import NxCommands from '@components/nx-commands.astro';
 
-Ce guide vous présente les bases de l'installation et de l'utilisation de `@aws/nx-plugin` pour développer rapidement des projets sur AWS.
+Ce guide vous explique les bases de l'installation et de l'utilisation de `@aws/nx-plugin` pour développer rapidement des projets sur AWS.
 
 :::tip
-Pour un tutoriel plus approfondi sur la création d'une application full-stack, consultez le <Link path="get_started/tutorials/dungeon-game/overview">Tutoriel Dungeon Adventure</Link>.
+Pour un tutoriel plus approfondi sur la création d'une application full-stack, consultez le <Link path="get_started/tutorials/dungeon-game/overview">Tutoriel de l'Aventure Donjon</Link>.
 :::
 
 ## Prérequis
@@ -61,11 +61,11 @@ Cela configure l'infrastructure nécessaire et le code React pour ajouter l'auth
 
 ### Connecter le frontend au backend
 
-<RunGenerator generator="api-connection" requiredParameters={{ sourceProject: '@my-project/demo-website', targetProject: '@my-project/demo-api-backend' }} />
+<RunGenerator generator="api-connection" requiredParameters={{ sourceProject: '@my-project/demo-website', targetProject: '@my-project/demo-api' }} />
 
 Cela configure les fournisseurs nécessaires pour que votre site puisse appeler votre API tRPC.
 
-### Ajouter l'infrastructure CDK
+### Ajouter une infrastructure CDK
 
 <RunGenerator generator="ts#infra" requiredParameters={{ name: 'infra' }} />
 
@@ -99,7 +99,7 @@ C'est tout le code CDK nécessaire pour déployer notre application full-stack.
 
 ### Construire et déployer l'infrastructure
 
-Exécutez ensuite la commande suivante pour construire votre projet :
+Ensuite, exécutez la commande suivante pour construire votre projet :
 
 <NxCommands commands={['run-many --target build --all']} />
 

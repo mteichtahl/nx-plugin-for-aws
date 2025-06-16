@@ -13,19 +13,19 @@ import InstallCommand from '@components/install-command.astro';
 import RunGenerator from '@components/run-generator.astro';
 import NxCommands from '@components/nx-commands.astro';
 
-Esta guía te guiará por los conceptos básicos de instalar y usar `@aws/nx-plugin` para construir proyectos rápidamente en AWS.
+Esta guía te lleva a través de los conceptos básicos para instalar y usar `@aws/nx-plugin` y construir proyectos rápidamente en AWS.
 
 :::tip
-Para un tutorial más detallado sobre cómo construir una aplicación full-stack, consulta el <Link path="get_started/tutorials/dungeon-game/overview">Tutorial de Dungeon Adventure</Link>.
+Para un tutorial más detallado sobre cómo construir una aplicación full-stack, revisa el <Link path="get_started/tutorials/dungeon-game/overview">Tutorial de Aventura en la Mazmorra</Link>.
 :::
 
-## Requisitos previos
+## Requisitos Previos
 
 Se necesitan las siguientes dependencias globales antes de continuar:
 
 <Snippet name="prerequisites" />
 
-## Paso 1: Inicializar un nuevo espacio de trabajo Nx
+## Paso 1: Inicializar un Nuevo Espacio de Trabajo Nx
 
 Ejecuta el siguiente comando para crear un espacio de trabajo Nx con el gestor de paquetes de tu elección:
 
@@ -37,9 +37,9 @@ Una vez completado, navega al directorio del proyecto:
 cd my-project
 ```
 
-## Paso 2: Usar generadores para estructurar tu proyecto
+## Paso 2: Usar Generadores para Estructurar tu Proyecto
 
-En esta guía rápida agregaremos una API tRPC, un sitio web React, autenticación con Cognito e infraestructura CDK. Dependiendo del tipo de proyecto que estés construyendo, puedes elegir cualquier combinación de generadores para inicializar rápidamente tu proyecto. Consulta las __Guías__ en la barra de navegación izquierda para ver la lista completa de opciones.
+En esta guía rápida agregaremos una API tRPC, un Sitio Web React, Autenticación Cognito e Infraestructura CDK. Dependiendo del tipo de proyecto que estés construyendo, puedes elegir cualquier combinación de generadores para configurar rápidamente tu proyecto. Revisa las __Guías__ en la barra de navegación izquierda para ver la lista completa de opciones.
 
 ### Agregar una API tRPC
 
@@ -47,31 +47,31 @@ En esta guía rápida agregaremos una API tRPC, un sitio web React, autenticaci�
 
 Esto creará la API dentro de la carpeta `packages/demo-api`.
 
-### Agregar un sitio web React
+### Agregar un Sitio Web React
 
 <RunGenerator generator="ts#cloudscape-website" requiredParameters={{ name: 'demo-website' }} />
 
 Esto genera un nuevo sitio web React en `packages/demo-website`.
 
-### Agregar autenticación con Cognito
+### Agregar Autenticación con Cognito
 
 <RunGenerator generator="ts#cloudscape-website#auth" requiredParameters={{ project: '@my-project/demo-website', cognitoDomain: 'my-demo' }} />
 
 Esto configura la infraestructura necesaria y el código React para agregar autenticación con Cognito a tu sitio web.
 
-### Conectar el frontend al backend
+### Conectar el Frontend al Backend
 
-<RunGenerator generator="api-connection" requiredParameters={{ sourceProject: '@my-project/demo-website', targetProject: '@my-project/demo-api-backend' }} />
+<RunGenerator generator="api-connection" requiredParameters={{ sourceProject: '@my-project/demo-website', targetProject: '@my-project/demo-api' }} />
 
-Esto configura los proveedores necesarios para asegurar que tu sitio web pueda consumir tu API tRPC.
+Esto configura los proveedores necesarios para asegurar que tu sitio web pueda llamar a tu API tRPC.
 
-### Agregar infraestructura CDK
+### Agregar Infraestructura CDK
 
 <RunGenerator generator="ts#infra" requiredParameters={{ name: 'infra' }} />
 
-Esto configura una aplicación CDK que puedes usar para desplegar tu infraestructura en AWS.
+Esto configura una Aplicación CDK que puedes usar para implementar tu infraestructura en AWS.
 
-## Paso 3: Definir recursos en la nube y desplegar en AWS
+## Paso 3: Definir Recursos en la Nube e Implementar en AWS
 
 Abre `packages/infra/src/stacks/application-stack.ts` y agrega el siguiente código:
 
@@ -95,21 +95,21 @@ export class ApplicationStack extends cdk.Stack {
 }
 ```
 
-Esto es todo el código CDK necesario para desplegar nuestra aplicación full-stack.
+Este es todo el código CDK que necesitamos escribir para implementar nuestra aplicación full-stack.
 
-### Construir y desplegar la infraestructura
+### Construir e Implementar la Infraestructura
 
 Luego, ejecuta el siguiente comando para construir tu proyecto:
 
 <NxCommands commands={['run-many --target build --all']} />
 
 :::tip
-Si encuentras errores de lint, puedes ejecutar este comando para corregirlos automáticamente:
+Si encuentras errores de lint, puedes ejecutar el siguiente comando para corregirlos automáticamente:
 
 <NxCommands commands={['run-many --target lint --configuration=fix --all']} />
 :::
 
-## Paso 4: Ejecutar el frontend localmente
+## Paso 4: Ejecutar el Frontend Localmente
 
 <Steps>
 1. Obtén el archivo `runtime-config.json`:
@@ -125,4 +125,4 @@ Tu sitio web estará disponible en `http://localhost:4200`.
 
 ---
 
-¡Felicitaciones! 🎉 ¡Has construido y desplegado exitosamente una aplicación full-stack usando `@aws/nx-plugin`!
+¡Felicitaciones! 🎉 ¡Has construido e implementado exitosamente una aplicación full-stack usando `@aws/nx-plugin`!

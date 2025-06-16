@@ -41,10 +41,13 @@ describe('cognito-auth generator', () => {
       import { RuntimeConfigProvider } from './components/RuntimeConfig';
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
-      export function App() {
+      export function Main() {
+
+      const App = () => <RouterProvider router={router} />;
+
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -90,10 +93,13 @@ describe('cognito-auth generator', () => {
       import { RuntimeConfigProvider } from './components/RuntimeConfig';
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
-      export function App() {
+      export function Main() {
+
+        const App = () => <RouterProvider router={router} />;
+        
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -147,10 +153,13 @@ describe('cognito-auth generator', () => {
       import { RuntimeConfigProvider } from './components/RuntimeConfig';
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
-      export function App() {
+      export function Main() {
+
+        const App = () => <RouterProvider router={router} />;
+        
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -180,9 +189,11 @@ describe('cognito-auth generator', () => {
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
       export function App() {
+        const App = () => <RouterProvider router={router} />;
+        
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -195,7 +206,6 @@ describe('cognito-auth generator', () => {
     expect(packageJson.dependencies).toMatchObject({
       constructs: expect.any(String),
       'aws-cdk-lib': expect.any(String),
-      '@aws-cdk/aws-cognito-identitypool-alpha': expect.any(String),
       'oidc-client-ts': expect.any(String),
       'react-oidc-context': expect.any(String),
     });
@@ -210,9 +220,12 @@ describe('cognito-auth generator', () => {
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
       export function App() {
+
+        const App = () => <RouterProvider router={router} />;
+
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -233,11 +246,15 @@ describe('cognito-auth generator', () => {
       `
       import { RuntimeConfigProvider } from './components/RuntimeConfig';
       import { RouterProvider, createRouter } from '@tanstack/react-router';
+      
 
       export function App() {
+        
+        const App = () => <RouterProvider router={router} />;
+
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -446,9 +463,12 @@ export default AppLayout;
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
       export function App() {
+
+        const App = () => <RouterProvider router={router} />;
+
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
@@ -486,9 +506,12 @@ export default AppLayout;
       import { RouterProvider, createRouter } from '@tanstack/react-router';
 
       export function App() {
+
+      const App = () => <RouterProvider router={router} />;
+
         return (
           <RuntimeConfigProvider>
-            <RouterProvider router={router} />
+            <App/>
           </RuntimeConfigProvider>
         );
       }
