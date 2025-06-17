@@ -182,6 +182,8 @@ export class VerifiedPermissions extends CfnPolicyStore {
 
     this.namespace = namespace;
 
+    const { createAdminGroup = true, createUserGroup = true } = identitySource;
+
     // Configure Cognito as an identity source for AWS Verified Permissions
     // This links the user pool to the policy store, allowing user attributes to be used in policies
     this.identitySource = new CfnIdentitySource(this, `${namespace}CognitoIdentitySource`, {
@@ -222,7 +224,7 @@ export class VerifiedPermissions extends CfnPolicyStore {
     }
 
     // Create default admin group if requested and not already created by the user
-    if (identitySource.createAdminGroup) {
+    if (createAdminGroup) {
       identitySource.userPool.addGroup('AdminGroup', {
         description: `[DEFAULT] ${namespace} Administrators group`,
         groupName: 'admin',
@@ -231,7 +233,7 @@ export class VerifiedPermissions extends CfnPolicyStore {
     }
 
     // Create default user group if requested and not already created by the user
-    if (identitySource.createUserGroup) {
+    if (createUserGroup) {
       identitySource.userPool.addGroup('UserGroup', {
         description: `[DEFAULT] ${namespace} Users group`,
         groupName: 'user',

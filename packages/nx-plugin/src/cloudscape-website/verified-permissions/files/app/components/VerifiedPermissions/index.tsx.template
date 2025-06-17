@@ -34,7 +34,7 @@ type IsAuthorizedQuery = Omit<UseQueryResult<boolean, Error>, 'data'> & {
 /**
  * Interface for the permissions context value
  */
-type PermissionsContext = {
+type PermissionsContextType = {
   isAuthorized: (props: IsAuthorizedProps) => IsAuthorizedQuery;
 };
 
@@ -73,7 +73,7 @@ type PermissionsProviderType = {
 /**
  * React Context for permissions management
  */
-const PermissionsContext = createContext<PermissionsContext | undefined>(
+const PermissionsContext = createContext<PermissionsContextType | undefined>(
   undefined,
 );
 
@@ -94,6 +94,7 @@ export const VerifiedPermissions = ({
 }: PermissionsProviderType) => {
   // Access authentication state from react-oidc-context
   const auth = useAuth();
+
   const runtimeConfig = useRuntimeConfig();
 
   const _namespace = runtimeConfig.verifiedPermissionsProps.namespace;
@@ -104,7 +105,6 @@ export const VerifiedPermissions = ({
   // Store the Verified Permissions client instance once created
   const [client, setClient] = useState<VerifiedPermissionsClient | null>(null);
   const [namespace] = useState(_namespace);
-
   /**
    * Initialize the AWS Verified Permissions client when authentication state changes
    */
@@ -288,7 +288,7 @@ export const VerifiedPermissions = ({
  * @returns {PermissionsContext} Object with isAuthorized function
  * @throws {Error} If used outside of a PermissionsProvider
  */
-export const usePermissions = (): PermissionsContext => {
+export const usePermissions = (): PermissionsContextType => {
   // Get permissions context
   const permissions = useContext(PermissionsContext);
 

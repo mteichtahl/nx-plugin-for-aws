@@ -9,7 +9,7 @@
  * loading and unauthorized states with customizable components.
  */
 import React from 'react';
-import { usePermissions } from './Permissions.js';
+import { usePermissions } from './index.js';
 import { ContextDefinition } from '@aws-sdk/client-verifiedpermissions';
 
 /**
