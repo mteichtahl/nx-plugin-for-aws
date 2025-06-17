@@ -245,7 +245,7 @@ import { routeTree } from './routeTree.gen';
 import '@cloudscape-design/global-styles/index.css';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type RouterProviderContextType = {};
+export type RouterProviderContext = {};
 
 const router = createRouter({
   routeTree,
@@ -546,7 +546,7 @@ import { routeTree } from './routeTree.gen';
 import '@cloudscape-design/global-styles/index.css';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type RouterProviderContextType = {};
+export type RouterProviderContext = {};
 
 const router = createRouter({
   routeTree,

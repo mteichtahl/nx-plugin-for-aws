@@ -1,6 +1,7 @@
-import { createRootRoute } from '@tanstack/react-router';
+import { createRootRouteWithContext } from '@tanstack/react-router';
 import AppLayout from '../components/AppLayout';
+import { RouterProviderContext } from '../main';
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterProviderContext>()({
   component: () => <AppLayout />,
 });
