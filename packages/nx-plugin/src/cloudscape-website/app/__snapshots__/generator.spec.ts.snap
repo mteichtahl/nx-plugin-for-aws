@@ -241,23 +241,10 @@ import { I18nProvider } from '@cloudscape-design/components/i18n';
 import messages from '@cloudscape-design/components/i18n/messages/all.en';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
-import { useAuth } from 'react-oidc-context';
-import { useRuntimeConfig } from './hooks/useRuntimeConfig';
 
 import '@cloudscape-design/global-styles/index.css';
 
-export type RouterProviderContextType = {
-  auth: ReturnType<typeof useAuth> | undefined;
-  runtimeConfig: ReturnType<typeof useRuntimeConfig> | undefined;
-};
-
-const router = createRouter({
-  routeTree,
-  context: {
-    auth: undefined,
-    runtimeConfig: undefined,
-  },
-});
+const router = createRouter({ routeTree });
 
 // Register the router instance for type safety
 declare module '@tanstack/react-router' {
@@ -267,9 +254,7 @@ declare module '@tanstack/react-router' {
 }
 
 const App = () => {
-  const auth = useAuth();
-  const runtimeConfig = useRuntimeConfig();
-  return <RouterProvider router={router} context={{ auth, runtimeConfig }} />;
+  return <RouterProvider router={router} />;
 };
 
 const root = document.getElementById('root');
@@ -551,23 +536,10 @@ import { I18nProvider } from '@cloudscape-design/components/i18n';
 import messages from '@cloudscape-design/components/i18n/messages/all.en';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
-import { useAuth } from 'react-oidc-context';
-import { useRuntimeConfig } from './hooks/useRuntimeConfig';
 
 import '@cloudscape-design/global-styles/index.css';
 
-export type RouterProviderContextType = {
-  auth: ReturnType<typeof useAuth> | undefined;
-  runtimeConfig: ReturnType<typeof useRuntimeConfig> | undefined;
-};
-
-const router = createRouter({
-  routeTree,
-  context: {
-    auth: undefined,
-    runtimeConfig: undefined,
-  },
-});
+const router = createRouter({ routeTree });
 
 // Register the router instance for type safety
 declare module '@tanstack/react-router' {
@@ -577,9 +549,7 @@ declare module '@tanstack/react-router' {
 }
 
 const App = () => {
-  const auth = useAuth();
-  const runtimeConfig = useRuntimeConfig();
-  return <RouterProvider router={router} context={{ auth, runtimeConfig }} />;
+  return <RouterProvider router={router} />;
 };
 
 const root = document.getElementById('root');
