@@ -9,17 +9,12 @@ import { useRuntimeConfig } from './hooks/useRuntimeConfig';
 
 import '@cloudscape-design/global-styles/index.css';
 
-export type RouterProviderContextType = {
-  auth: ReturnType<typeof useAuth> | undefined;
-  runtimeConfig: ReturnType<typeof useRuntimeConfig> | undefined;
-};
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type RouterProviderContext = {};
 
 const router = createRouter({
   routeTree,
-  context: {
-    auth: undefined,
-    runtimeConfig: undefined,
-  },
+  context: {}
 });
 
 // Register the router instance for type safety
@@ -30,9 +25,7 @@ declare module '@tanstack/react-router' {
 }
 
 const App = () => {
-  const auth = useAuth();
-  const runtimeConfig = useRuntimeConfig();
-  return <RouterProvider router={router} context={{ auth, runtimeConfig }} />;
+  return <RouterProvider router={router} context={{}} />;
 };
 
 const root = document.getElementById('root');

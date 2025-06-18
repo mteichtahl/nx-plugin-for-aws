@@ -1,7 +1,16 @@
+<<<<<<< HEAD
 import { createRootRoute } from '@tanstack/react-router';
 import { RouterProviderContextType } from '../main';
+=======
+import { createRootRouteWithContext } from '@tanstack/react-router';
+>>>>>>> main
 import AppLayout from '../components/AppLayout';
+import { RouterProviderContext } from '../main';
 
+<<<<<<< HEAD
 export const Route = createRootRouteWithContext<RouterProviderContextType>()({
+=======
+export const Route = createRootRouteWithContext<RouterProviderContext>()({
+>>>>>>> main
   component: () => <AppLayout />,
 });
