@@ -8,11 +8,12 @@ import {
   CfnManagedLoginBranding,
   CfnUserPoolDomain,
   FeaturePlan,
-  Mfa,
+  Mfa
   OAuthScope,
   UserPool,
   UserPoolClient,
 } from 'aws-cdk-lib/aws-cognito';
+import { IRole } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { RuntimeConfig } from './runtime-config.js';
 import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
@@ -26,7 +27,9 @@ export class UserIdentity extends Construct {
   public readonly identityPool: IdentityPool;
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
+  public readonly userPoolClients: UserPoolClient[];
   public readonly userPoolDomain: CfnUserPoolDomain;
+  public readonly authenticatedRole: IRole;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -35,10 +38,12 @@ export class UserIdentity extends Construct {
     this.userPool = this.createUserPool();
     this.userPoolDomain = this.createUserPoolDomain(this.userPool);
     this.userPoolClient = this.createUserPoolClient(this.userPool);
+    this.userPoolClients = [this.userPoolClient];
     this.identityPool = this.createIdentityPool(
       this.userPool,
       this.userPoolClient
     );
+    this.authenticatedRole = this.identityPool.authenticatedRole;
     this.createManagedLoginBranding(
       this.userPool,
       this.userPoolClient,

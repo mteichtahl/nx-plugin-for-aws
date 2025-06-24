@@ -40,6 +40,8 @@ The following list of generators are what is currently available in the \`@aws/n
 
 - **ts#cloudscape-website#auth**: Adds auth to an existing cloudscape website
 
+- **ts#cloudscape-website#verified-permissions**: An nx generator for AWS Verified Permissions that makes it easy to implement Attribute-Based Access Control (ABAC) in your applications using AWS Verified Permissions integrated with Amazon Cognito. This construct simplifies the implementation of fine-grained permissions based on user attributes, resource properties, and context.
+
 - **ts#infra**: Generates a cdk application
 
 - **ts#trpc-api**: creates a trpc backend

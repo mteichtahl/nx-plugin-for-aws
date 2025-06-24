@@ -87,11 +87,12 @@ import {
   CfnManagedLoginBranding,
   CfnUserPoolDomain,
   FeaturePlan,
-  Mfa,
+  Mfa
   OAuthScope,
   UserPool,
   UserPoolClient,
 } from 'aws-cdk-lib/aws-cognito';
+import { IRole } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { RuntimeConfig } from './runtime-config.js';
 import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
@@ -105,7 +106,9 @@ export class UserIdentity extends Construct {
   public readonly identityPool: IdentityPool;
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
+  public readonly userPoolClients: UserPoolClient[];
   public readonly userPoolDomain: CfnUserPoolDomain;
+  public readonly authenticatedRole: IRole;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -114,14 +117,16 @@ export class UserIdentity extends Construct {
     this.userPool = this.createUserPool();
     this.userPoolDomain = this.createUserPoolDomain(this.userPool);
     this.userPoolClient = this.createUserPoolClient(this.userPool);
+    this.userPoolClients = [this.userPoolClient];
     this.identityPool = this.createIdentityPool(
       this.userPool,
-      this.userPoolClient,
+      this.userPoolClient
     );
+    this.authenticatedRole = this.identityPool.authenticatedRole;
     this.createManagedLoginBranding(
       this.userPool,
       this.userPoolClient,
-      this.userPoolDomain,
+      this.userPoolDomain
     );
 
     RuntimeConfig.ensure(this).config.cognitoProps = {
@@ -190,8 +195,8 @@ export class UserIdentity extends Construct {
           \`https://\${Stack.of(this).region}.console.aws.amazon.com\`,
         ].concat(
           this.findCloudFrontDistributions().map(
-            (d) => \`https://\${d.domainName}\`,
-          ),
+            (d) => \`https://\${d.domainName}\`
+          )
         ),
     });
 
@@ -215,7 +220,7 @@ export class UserIdentity extends Construct {
 
   private createIdentityPool = (
     userPool: UserPool,
-    userPoolClient: UserPoolClient,
+    userPoolClient: UserPoolClient
   ) => {
     const identityPool = new IdentityPool(this, 'IdentityPool');
 
@@ -223,7 +228,7 @@ export class UserIdentity extends Construct {
       new UserPoolAuthenticationProvider({
         userPool,
         userPoolClient,
-      }),
+      })
     );
 
     return identityPool;
@@ -232,7 +237,7 @@ export class UserIdentity extends Construct {
   private createManagedLoginBranding = (
     userPool: UserPool,
     userPoolClient: UserPoolClient,
-    userPoolDomain: CfnUserPoolDomain,
+    userPoolDomain: CfnUserPoolDomain
   ) => {
     new CfnManagedLoginBranding(this, 'ManagedLoginBranding', {
       userPoolId: userPool.userPoolId,

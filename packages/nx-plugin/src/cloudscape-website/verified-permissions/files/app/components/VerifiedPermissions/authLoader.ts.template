@@ -1,0 +1,175 @@
+/**
+ * Authorization utilities for TanStack Router loaders
+ *
+ * This module provides functions to check permissions within TanStack Router loaders,
+ * which cannot use React hooks directly.
+ */
+import {
+  VerifiedPermissionsClient,
+  IsAuthorizedWithTokenCommand,
+  ContextDefinition,
+} from '@aws-sdk/client-verifiedpermissions';
+import { fromCognitoIdentityPool } from '@aws-sdk/credential-providers';
+import { redirect, notFound } from '@tanstack/react-router';
+import { RouterProviderContext } from '../../main';
+
+// Configuration type definition for AWS Verified Permissions
+type Config = {
+  policyStoreId: string;
+  identityPoolId: string;
+  region: string;
+  namespace: string;
+};
+
+// Import configuration from context
+// We'll need to get this from context parameter in the loader
+export type CheckAuthInLoader = {
+  action: string;
+  resource: string;
+  auth: any;
+  context: ContextDefinition | undefined;
+  config: Config;
+};
+
+/**
+ * Checks authorization in a TanStack Router loader
+ *
+ * @param {Object} params Authorization parameters
+ * @param {string} params.idToken User's ID token from Cognito
+ * @param {string} params.action The action to check (e.g., "ReadResource")
+ * @param {string} params.resource The resource in format "ResourceType::resourceId"
+ * @param {string} params.userPoolId User pool ID extracted from token issuer
+ * @param {ContextDefinition} [params.context] Optional Cedar policy context
+ * @param {string} [params.redirectTo] Path to redirect if unauthorized (defaults to '/')
+ * @returns {Promise<boolean>} True if authorized
+ */
+const checkAuthInLoader = async (
+  props: CheckAuthInLoader,
+): Promise<boolean> => {
+  const { action, resource: _resource, auth, context, config } = props;
+
+  // If no auth or config, return false
+  if (!auth?.user?.id_token || !config) {
+    return false;
+  }
+
+  try {
+    // Setup identity provider for Cognito Identity Pool
+    // Extract tokens and identity information from authenticated user
+    const idToken = auth.user?.id_token;
+    const userPoolId = auth.user?.profile?.iss?.split('/').pop();
+    const { region, policyStoreId, namespace, identityPoolId } = config;
+    const identityProvider = `cognito-idp.${region}.amazonaws.com/${userPoolId}`;
+
+    // Get credentials from Cognito Identity Pool
+    const credentials = await fromCognitoIdentityPool({
+      identityPoolId,
+      userIdentifier: idToken,
+      logins: { [identityProvider]: idToken },
+      clientConfig: { region },
+    });
+
+    // Create the Verified Permissions client
+    const client = new VerifiedPermissionsClient({
+      region,
+      credentials,
+    });
+
+    // Split the resource string into type and ID
+    const [resource, resourceId] = _resource.split('::');
+
+    // Create and send the authorization command
+    const command = new IsAuthorizedWithTokenCommand({
+      identityToken: idToken,
+      policyStoreId,
+      action: {
+        actionType: `${namespace}::Action`,
+        actionId: action,
+      },
+      resource: {
+        entityType: `${namespace}::${resource}`,
+        entityId: resourceId,
+      },
+      context: { contextMap: { ...context?.contextMap } },
+    });
+    const result = await client.send(command);
+    return result.decision === 'ALLOW';
+  } catch (error) {
+    console.error('Authorization check failed in loader:', error);
+    return false;
+  }
+};
+
+/**
+ * TanStack Router loader middleware for permission checking
+ *
+ * Use this in your route loaders to check permissions before loading data.
+ * If the user doesn't have permission, it will redirect to the specified path.
+ *
+ * @example
+ * ```ts
+ * loader: async ({ context }) => {
+ *   await authLoader({
+ *     context,
+ *     action: 'View',
+ *     resource: 'Page::about'
+ *   });
+ *
+ *   // If we get here, user is authorized
+ *   return { yourData };
+ * }
+ * ```
+ */
+
+export const authLoader = async ({
+  context,
+  action,
+  resource,
+  redirectTo = '/',
+  onUnauthorized,
+}: {
+  context: RouterProviderContext;
+  action: string;
+  resource: string;
+  redirectTo?: string;
+  onUnauthorized?: () => void;
+}) => {
+  if (!context.auth?.user?.id_token || !context.runtimeConfig) {
+    // User is not authenticated, redirect to root
+    throw redirect({
+      to: redirectTo || '/',
+    });
+  }
+  // Check authorization
+  try {
+    const isAuthorized = await checkAuthInLoader({
+      action,
+      resource,
+      auth: context.auth,
+      context: context.verifiedPermissionsContext,
+      config: {
+        identityPoolId: context.runtimeConfig.cognitoProps.identityPoolId,
+        namespace: context.runtimeConfig.verifiedPermissionsProps.namespace,
+        policyStoreId:
+          context.runtimeConfig.verifiedPermissionsProps.policyStoreId,
+        region: context.runtimeConfig.cognitoProps.region,
+      },
+    });
+
+    // If not authorized, either redirect or run the callback
+    if (!isAuthorized) {
+      onUnauthorized?.();
+      throw redirect({
+        to: redirectTo,
+      });
+    }
+  } catch (error: any) {
+    if (error?.statusCode === 404) {
+      throw notFound();
+    }
+    throw error;
+  }
+
+  // Return nothing, allowing the loader to continue
+  return { authorized: true, isAuthenticated: true };
+};

@@ -275,6 +275,10 @@ export default defineConfig({
               label: 'ts#cloudscape-website#auth',
               link: '/guides/cloudscape-website-auth',
             },
+            {
+              label: 'ts#cloudscape-website#verified-permissions',
+              link: '/guides/ts-cloudscape-website-verified-permissions',
+            },
             { label: 'ts#nx-generator', link: '/guides/nx-generator' },
             { label: 'ts#mcp-server', link: '/guides/ts-mcp-server' },
             { label: 'py#project', link: '/guides/python-project' },

@@ -1,0 +1,390 @@
+/**
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
+ * Valid scalar attribute types supported by Cedar
+ */
+export type ScalarAttributeType = 'String' | 'Long' | 'Boolean' | 'Double';
+
+/**
+ * Valid collection attribute types supported by Cedar
+ */
+export type CollectionAttributeType = 'Set' | 'Record';
+
+/**
+ * All valid attribute types supported by Cedar
+ */
+export type ValidAttributeType = ScalarAttributeType | CollectionAttributeType;
+
+/**
+ * Element definition for collection types
+ */
+export interface AttributeElement {
+  /** The data type of elements in the collection */
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Defines the structure of an attribute in a Cedar schema.
+ * Attributes can be scalar types like String or Long, or collections like Sets.
+ */
+export interface AttributeType {
+  /** The data type of this attribute (e.g., "String", "Long", "Set") */
+  type: string;
+
+  /** Whether this attribute is required */
+  required?: boolean;
+
+  /** For collection types like Set, defines the type of elements in the collection */
+  element?: AttributeElement;
+
+  [key: string]: unknown;
+}
+
+/**
+ * Shape definition for entity types
+ */
+export interface EntityShape {
+  /** The type of shape (usually "Record" in Cedar schemas) */
+  type: string;
+
+  /** Attributes of this entity type */
+  attributes?: Record<string, AttributeType>;
+}
+
+/**
+ * Defines the structure of an entity type in the Cedar schema.
+ * Entity types can represent principals (like Users) or resources (like Documents).
+ */
+export interface EntityTypeDefinition {
+  /** Types that this entity can be a member of (for group membership) */
+  memberOfTypes?: string[];
+
+  /** The structure of this entity type, including its attributes */
+  shape?: EntityShape;
+}
+
+/**
+ * Defines the structure of an action in the Cedar schema.
+ * Actions represent operations that principals can perform on resources.
+ */
+export interface ActionDefinition {
+  /** Specifies which principal types can perform this action on which resource types */
+  appliesTo?: {
+    /** Resource types that this action can be performed on */
+    resourceTypes?: string[];
+
+    /** Principal types that can perform this action */
+    principalTypes?: string[];
+
+    /** Context attributes that may be relevant for this action */
+    context?: Record<string, AttributeType>;
+  };
+}
+
+/**
+ * Represents the complete structure of a Cedar JSON schema for authorization modeling.
+ * This schema defines entity types, their shapes, attributes, and relationships,
+ * as well as actions that can be performed within the authorization model.
+ */
+export interface CedarJson {
+  /** Entity types in the Cedar schema, defining principals and resources */
+  entityTypes?: Record<string, EntityTypeDefinition>;
+
+  /** Actions that can be performed by principals on resources */
+  actions?: Record<string, ActionDefinition>;
+
+  /** Allow for other top-level properties that might be needed */
+  [key: string]: unknown;
+}
+
+/**
+ * Validates a Cedar JSON schema against the expected format and requirements.
+ * Performs comprehensive validation of entity types, their attributes, relationships,
+ * and the actions that can be performed in the authorization model.
+ *
+ * @param schema - The Cedar schema in JSON format to validate
+ * @throws Error if the schema does not match the required format
+ */
+export function validateCedarSchema(schema: CedarJson): void {
+  if (!schema) {
+    throw new Error('Cedar schema cannot be null or undefined');
+  }
+
+  // Check if schema is an object
+  if (typeof schema !== 'object' || Array.isArray(schema)) {
+    throw new Error('Cedar schema must be a valid JSON object');
+  }
+
+  // Validate entityTypes if present
+  if (schema.entityTypes) {
+    validateEntityTypes(schema.entityTypes);
+
+    // Validate cross-references between entity types (like memberOfTypes)
+    validateEntityRelationships(schema.entityTypes);
+  }
+
+  // Validate actions if present
+  if (schema.actions) {
+    validateActions(schema.actions);
+
+    // Validate cross-references between actions and entity types
+    if (schema.entityTypes) {
+      validateActionEntityReferences(schema.actions, schema.entityTypes);
+    }
+  }
+}
+
+/**
+ * Validates entity types defined in the Cedar schema.
+ *
+ * @param entityTypes - The entity types to validate
+ * @throws Error if entity types don't meet the requirements
+ */
+function validateEntityTypes(entityTypes: Record<string, EntityTypeDefinition>): void {
+  if (typeof entityTypes !== 'object' || Array.isArray(entityTypes)) {
+    throw new Error('entityTypes must be a valid JSON object');
+  }
+
+  for (const [name, definition] of Object.entries(entityTypes)) {
+    if (!name || name.trim() === '') {
+      throw new Error('Entity type name cannot be empty');
+    }
+
+    // Ensure only valid properties are defined
+    const validProperties = ['memberOfTypes', 'shape'];
+    const definitionKeys = Object.keys(definition);
+
+    for (const key of definitionKeys) {
+      if (!validProperties.includes(key)) {
+        throw new Error(`Invalid property '${key}' found in entity type '${name}'. Only 'memberOfTypes' and 'shape' are allowed.`);
+      }
+    }
+
+    // Validate memberOfTypes if present
+    if (definition.memberOfTypes) {
+      if (!Array.isArray(definition.memberOfTypes)) {
+        throw new Error(`memberOfTypes for entity ${name} must be an array`);
+      }
+      // Validate that each memberOfType is a string and not empty
+      for (const memberType of definition.memberOfTypes) {
+        if (typeof memberType !== 'string' || memberType.trim() === '') {
+          throw new Error(`memberOfType for entity ${name} contains invalid or empty value`);
+        }
+      }
+    }
+
+    // Validate shape if present
+    if (definition.shape) {
+      if (typeof definition.shape !== 'object' || Array.isArray(definition.shape)) {
+        throw new Error(`shape for entity ${name} must be a valid JSON object`);
+      }
+
+      // Validate that shape has a valid type
+      if (!definition.shape.type || typeof definition.shape.type !== 'string') {
+        throw new Error(`Shape for entity ${name} must have a valid type`);
+      }
+
+      // Validate that type is 'Record' (currently only Record types are supported in Cedar)
+      if (definition.shape.type !== 'Record') {
+        throw new Error(`Shape for entity ${name} must be of type 'Record', got '${definition.shape.type}'`);
+      }
+
+      // Validate attributes if present
+      if (definition.shape.attributes) {
+        if (typeof definition.shape.attributes !== 'object' || Array.isArray(definition.shape.attributes)) {
+          throw new Error(`Attributes for entity ${name} must be a valid JSON object`);
+        }
+
+        // Validate each attribute's structure
+        for (const [attrName, attrType] of Object.entries(definition.shape.attributes)) {
+          if (!attrName || attrName.trim() === '') {
+            throw new Error(`Entity ${name} has an attribute with empty name`);
+          }
+
+          if (!attrType.type || typeof attrType.type !== 'string') {
+            throw new Error(`Attribute ${attrName} in entity ${name} must have a valid type`);
+          }
+
+          // Validate common attribute types
+          validateAttributeType(attrName, attrType, name);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validates the type of an individual attribute.
+ *
+ * @param attrName - The name of the attribute
+ * @param attrType - The attribute type definition
+ * @param entityName - The name of the entity containing this attribute
+ * @throws Error if the attribute type is invalid
+ */
+function validateAttributeType(attrName: string, attrType: AttributeType, entityName: string): void {
+  // Validate based on the attribute type
+  const validScalarTypes: ScalarAttributeType[] = ['String', 'Long', 'Boolean', 'Double'];
+  const validCollectionTypes: CollectionAttributeType[] = ['Set', 'Record'];
+  const validTypes = [...validScalarTypes, ...validCollectionTypes];
+
+  if (!validTypes.includes(attrType.type as ValidAttributeType)) {
+    throw new Error(
+      `Attribute ${attrName} in entity ${entityName} has invalid type '${attrType.type}'. Valid types are: ${validTypes.join(', ')}`
+    );
+  }
+
+  if (validScalarTypes.includes(attrType.type as ScalarAttributeType)) {
+    // Scalar types don't need element validation
+    if (attrType.element) {
+      throw new Error(`Scalar attribute ${attrName} in entity ${entityName} should not have an element property`);
+    }
+  } else if (validCollectionTypes.includes(attrType.type as CollectionAttributeType)) {
+    // Collection types require element validation
+    if (attrType.type === 'Set') {
+      if (!attrType.element) {
+        throw new Error(`Set attribute ${attrName} in entity ${entityName} must have an element definition`);
+      }
+
+      if (typeof attrType.element !== 'object') {
+        throw new Error(`Element definition for attribute ${attrName} in entity ${entityName} must be an object`);
+      }
+
+      if (!attrType.element.type || typeof attrType.element.type !== 'string') {
+        throw new Error(`Element type for attribute ${attrName} in entity ${entityName} must be specified`);
+      }
+
+      // Validate that the element type is a valid scalar type
+      if (!validScalarTypes.includes(attrType.element.type as ScalarAttributeType)) {
+        throw new Error(
+          `Element type for attribute ${attrName} in entity ${entityName} must be one of: ${validScalarTypes.join(', ')}, got '${attrType.element.type}'`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Validates that entity relationships (like memberOfTypes references) are consistent.
+ *
+ * @param entityTypes - The entity types to validate relationships for
+ * @throws Error if entity relationships are inconsistent
+ */
+function validateEntityRelationships(entityTypes: Record<string, EntityTypeDefinition>): void {
+  const entityNames = Object.keys(entityTypes);
+  for (const [entityName, definition] of Object.entries(entityTypes)) {
+    // Check that all memberOfTypes references exist in the schema
+    if (definition.memberOfTypes) {
+      for (const memberType of definition.memberOfTypes) {
+        if (!entityNames.includes(memberType)) {
+          throw new Error(`Entity ${entityName} references non-existent entity type '${memberType}' in memberOfTypes`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validates actions defined in the Cedar schema.
+ *
+ * @param actions - The actions to validate
+ * @throws Error if actions don't meet the requirements
+ */
+function validateActions(actions: Record<string, ActionDefinition>): void {
+  if (typeof actions !== 'object' || Array.isArray(actions)) {
+    throw new Error('actions must be a valid JSON object');
+  }
+
+  for (const [name, definition] of Object.entries(actions)) {
+    if (!name || name.trim() === '') {
+      throw new Error('Action name cannot be empty');
+    }
+
+    // Validate appliesTo if present
+    if (definition.appliesTo) {
+      const { resourceTypes, principalTypes, context } = definition.appliesTo;
+
+      // Validate resourceTypes if present
+      if (resourceTypes !== undefined) {
+        if (!Array.isArray(resourceTypes)) {
+          throw new Error(`resourceTypes for action ${name} must be an array`);
+        }
+        // Check that resourceType entries are non-empty strings
+        for (const resourceType of resourceTypes) {
+          if (typeof resourceType !== 'string' || resourceType.trim() === '') {
+            throw new Error(`resourceTypes for action ${name} contains invalid or empty value`);
+          }
+        }
+      }
+
+      // Validate principalTypes if present
+      if (principalTypes !== undefined) {
+        if (!Array.isArray(principalTypes)) {
+          throw new Error(`principalTypes for action ${name} must be an array`);
+        }
+        // Check that principalType entries are non-empty strings
+        for (const principalType of principalTypes) {
+          if (typeof principalType !== 'string' || principalType.trim() === '') {
+            throw new Error(`principalTypes for action ${name} contains invalid or empty value`);
+          }
+        }
+      }
+
+      // Validate context if present
+      if (context !== undefined) {
+        if (typeof context !== 'object' || Array.isArray(context)) {
+          throw new Error(`context for action ${name} must be a valid JSON object`);
+        }
+
+        for (const [ctxName, ctxType] of Object.entries(context)) {
+          if (!ctxName || ctxName.trim() === '') {
+            throw new Error(`Action ${name} has a context attribute with empty name`);
+          }
+
+          if (!ctxType.type || typeof ctxType.type !== 'string') {
+            throw new Error(`Context attribute ${ctxName} in action ${name} must have a valid type`);
+          }
+          // Validate the context attribute types
+          validateAttributeType(ctxName, ctxType, `action ${name} context`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validates that action entity type references are consistent with defined entity types.
+ *
+ * @param actions - The actions to validate
+ * @param entityTypes - The entity types to check against
+ * @throws Error if actions reference undefined entity types
+ */
+function validateActionEntityReferences(
+  actions: Record<string, ActionDefinition>,
+  entityTypes: Record<string, EntityTypeDefinition>
+): void {
+  const entityNames = Object.keys(entityTypes);
+  for (const [actionName, definition] of Object.entries(actions)) {
+    if (definition.appliesTo) {
+      const { resourceTypes, principalTypes } = definition.appliesTo;
+      // Check that all resourceTypes exist in the schema
+      if (resourceTypes) {
+        for (const resourceType of resourceTypes) {
+          if (!entityNames.includes(resourceType)) {
+            throw new Error(`Action ${actionName} references non-existent resource type '${resourceType}'`);
+          }
+        }
+      }
+      // Check that all principalTypes exist in the schema
+      if (principalTypes) {
+        for (const principalType of principalTypes) {
+          if (!entityNames.includes(principalType)) {
+            throw new Error(`Action ${actionName} references non-existent principal type '${principalType}'`);
+          }
+        }
+      }
+    }
+  }
+}
